@@ -26,7 +26,7 @@ class _SerializableKeyPair {
 /// - Cached SecureRandom with periodic re-seeding
 /// - Efficient DER encoding/decoding
 class BlindSignatureService {
-  static const int _keySize = 2048; // RSA key size in bits
+  static const int defaultKeySize = 2048; // RSA key size in bits
   static const int _publicExponent = 65537; // Standard RSA public exponent
   
   // Performance optimization: Cache for key conversions and computed values
@@ -41,8 +41,8 @@ class BlindSignatureService {
 
   /// Generate RSA key pair for blind signature operations asynchronously
   /// Runs in a separate isolate to prevent blocking the UI thread
-  static Future<AsymmetricKeyPair<RSAPublicKey, RSAPrivateKey>> generateKeyPair() async {
-    final serializedKeyPair = await compute(_generatePair, null);
+  static Future<AsymmetricKeyPair<RSAPublicKey, RSAPrivateKey>> generateKeyPair({int keySize = defaultKeySize}) async {
+    final serializedKeyPair = await compute(_generatePair, keySize);
     
     // Deserialize PEM back to key objects on the main isolate
     final publicKey = publicKeyFromPem(serializedKeyPair.publicKeyPem);
@@ -53,14 +53,14 @@ class BlindSignatureService {
 
   /// Helper method for RSA key generation that runs in an isolate
   /// Returns serializable PEM strings instead of key objects to avoid isolate issues
-  static _SerializableKeyPair _generatePair(void _) {
+  static _SerializableKeyPair _generatePair(int keySize) {
     final keyGen = RSAKeyGenerator();
     final secureRandom = _getSecureRandom();
-    
+
     keyGen.init(ParametersWithRandom(
       RSAKeyGeneratorParameters(
         BigInt.from(_publicExponent),
-        _keySize,
+        keySize,
         64, // certainty for prime generation
       ),
       secureRandom,
@@ -320,15 +320,15 @@ class BlindSignatureService {
       _validatePublicKey(publicKey);
       
       final hashedMessage = _hashMessage(message);
-      final hashedMessageInt = _bytesToBigInt(hashedMessage);
       final signatureInt = _bytesToBigInt(signature);
       final exponent = publicKey.exponent!;
       final modulus = publicKey.modulus!;
       
       // Verify signature: m = s^e mod n
       final verifiedMessage = signatureInt.modPow(exponent, modulus);
-      
-      final isValid = verifiedMessage == hashedMessageInt;
+      final verifiedBytes =
+          _bigIntToFixedLengthBytes(verifiedMessage, hashedMessage.length);
+      final isValid = _constantTimeEquals(verifiedBytes, hashedMessage);
       
       _logInfo('Signature verification completed', {
         'isValid': isValid,
@@ -411,6 +411,30 @@ class BlindSignatureService {
     }
     
     return bytes;
+  }
+
+  /// Convert BigInt to bytes of fixed length, padding with leading zeros
+  static Uint8List _bigIntToFixedLengthBytes(BigInt bigInt, int length) {
+    final bytes = _bigIntToBytes(bigInt);
+    if (bytes.length == length) {
+      return bytes;
+    } else if (bytes.length > length) {
+      return Uint8List.fromList(bytes.sublist(bytes.length - length));
+    } else {
+      final result = Uint8List(length);
+      result.setRange(length - bytes.length, length, bytes);
+      return result;
+    }
+  }
+
+  /// Constant-time equality check for byte arrays
+  static bool _constantTimeEquals(Uint8List a, Uint8List b) {
+    if (a.length != b.length) return false;
+    int diff = 0;
+    for (int i = 0; i < a.length; i++) {
+      diff |= a[i] ^ b[i];
+    }
+    return diff == 0;
   }
 
   /// Convert byte array to BigInt (optimized)
@@ -580,7 +604,7 @@ class VoteData {
   /// Serialize vote data to bytes for signing
   Uint8List serialize() {
     final data = '$electionId:$candidateId:$voterId:$timestamp';
-    return Uint8List.fromList(data.codeUnits);
+    return Uint8List.fromList(utf8.encode(data));
   }
 
   /// Convert to JSON
