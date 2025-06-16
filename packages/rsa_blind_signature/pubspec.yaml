@@ -1,0 +1,9 @@
+name: rsa_blind_signature
+description: A Dart library providing RSA blind signature operations.
+version: 0.1.0
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+dependencies:
+  crypto: ^3.0.3
+  pointycastle: ^3.9.1
+  basic_utils: ^5.7.0

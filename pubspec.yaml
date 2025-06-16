@@ -28,6 +28,8 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  rsa_blind_signature:
+    path: packages/rsa_blind_signature
   flutter:
     sdk: flutter
   flutter_localizations:
