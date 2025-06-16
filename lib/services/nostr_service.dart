@@ -50,6 +50,19 @@ class NostrService {
 
   String get publicKey => 'mock_public_key'; // TODO: Generate actual key pair
 
+  bool get isConnected => _connected;
+
+  void loginPrivateKey({
+    required String pubKeyHex,
+    required String privKeyHex,
+  }) {
+    if (_ndk.accounts.hasAccount(pubKeyHex)) {
+      _ndk.accounts.switchAccount(pubkey: pubKeyHex);
+    } else {
+      _ndk.accounts.loginPrivateKey(pubkey: pubKeyHex, privkey: privKeyHex);
+    }
+  }
+
   Future<void> sendBlindedNonce(
     String ecPublicKey,
     Uint8List blindedNonce,
@@ -58,13 +71,51 @@ class NostrService {
     debugPrint('Sending blinded nonce to EC: ${base64.encode(blindedNonce)}');
   }
 
+  Future<void> sendBlindSignatureRequest({
+    required String ecPubKey,
+    required String electionId,
+    required Uint8List blindedNonce,
+    required String voterPrivKeyHex,
+    required String voterPubKeyHex,
+  }) async {
+    if (!_connected) throw Exception('Not connected to relay');
+
+    loginPrivateKey(pubKeyHex: voterPubKeyHex, privKeyHex: voterPrivKeyHex);
+
+    final payload = jsonEncode({
+      'id': electionId,
+      'kind': 1,
+      'payload': base64.encode(blindedNonce),
+    });
+
+    final rumor = await _ndk.giftWrap.createRumor(
+      content: payload,
+      kind: 1,
+      tags: [],
+    );
+
+    final seal = await _ndk.giftWrap.sealRumor(
+      rumor: rumor,
+      recipientPubkey: ecPubKey,
+    );
+
+    final giftWrap = await GiftWrap.wrapEvent(
+      recipientPublicKey: ecPubKey,
+      sealEvent: seal,
+    );
+
+    _ndk.broadcast.broadcast(nostrEvent: giftWrap);
+  }
+
   Future<void> castVote(
     String electionId,
     int candidateId,
     Uint8List signature,
   ) async {
     if (!_connected) throw Exception('Not connected to relay');
-    debugPrint('Casting vote for candidate $candidateId in election $electionId');
+    debugPrint(
+      'Casting vote for candidate $candidateId in election $electionId',
+    );
   }
 
   Stream<NostrEvent> subscribeToElections() {

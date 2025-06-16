@@ -5,6 +5,7 @@ import '../providers/election_provider.dart';
 import '../widgets/election_card.dart';
 import 'election_detail_screen.dart';
 import '../generated/app_localizations.dart';
+import '../services/token_request_service.dart';
 
 class ElectionsScreen extends StatefulWidget {
   const ElectionsScreen({super.key});
@@ -43,7 +44,9 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    AppLocalizations.of(context).errorWithMessage(provider.error!),
+                    AppLocalizations.of(
+                      context,
+                    ).errorWithMessage(provider.error!),
                     style: Theme.of(context).textTheme.bodyLarge,
                     textAlign: TextAlign.center,
                   ),
@@ -67,22 +70,27 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
                     Icon(
                       Icons.how_to_vote_outlined,
                       size: 80,
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.5),
                     ),
                     const SizedBox(height: 24),
                     Text(
                       AppLocalizations.of(context).noElectionsFound,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
                     ),
                     const SizedBox(height: 12),
                     Text(
                       AppLocalizations.of(context).noActiveElectionsFound,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.7),
                       ),
                     ),
                   ],
@@ -108,6 +116,13 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
   }
 
   void _navigateToElectionDetail(Election election) {
+    if (election.status.toLowerCase() == 'open') {
+      final service = TokenRequestService();
+      service.requestBlindSignature(election).catchError((e) {
+        debugPrint('Token request failed: $e');
+      });
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
