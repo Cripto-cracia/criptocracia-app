@@ -70,7 +70,7 @@ flutter run -- --help          # Show available options
 
 ### TODO for Production
 - Implement full RSA blind signature cryptography
-- Replace mock NostrService with actual dart_nostr integration
+ - Replace mock NostrService with actual NDK integration
 - Add comprehensive error handling and validation
 - Implement proper key management and storage
 - Add settings screen for advanced configuration options

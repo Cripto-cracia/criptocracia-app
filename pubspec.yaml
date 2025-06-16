@@ -47,11 +47,11 @@ dependencies:
   basic_utils: ^5.7.0
   
   # Nostr protocol
-  dart_nostr: ^9.1.1
+  ndk: ^0.4.0
   
   # Networking and WebSocket
   http: ^1.2.2
-  web_socket_channel: ^2.4.5
+  web_socket_channel: ^3.0.3
   
   # JSON handling
   json_annotation: ^4.9.0

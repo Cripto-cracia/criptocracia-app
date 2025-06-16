@@ -3,7 +3,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:dart_nostr/dart_nostr.dart';
+import 'package:ndk/shared/nips/nip19/nip19.dart';
 
 /// Service for managing Nostr keys following NIP-06 specification
 /// Generates mnemonic seed phrases and derives keys using m/44'/1237'/1989'/0/0 path
@@ -93,17 +93,17 @@ class NostrKeyManager {
     return Uint8List.fromList(hash.bytes);
   }
 
-  /// Convert public key to npub format using dart_nostr NIP-19 implementation
+  /// Convert public key to npub format using NDK NIP-19 implementation
   static String publicKeyToNpub(Uint8List publicKey) {
     if (publicKey.length != 32) {
       throw ArgumentError('Public key must be 32 bytes');
     }
 
-    // Convert Uint8List to hex string as expected by dart_nostr
+    // Convert Uint8List to hex string as expected by NDK
     final hexPublicKey = publicKey.map((b) => b.toRadixString(16).padLeft(2, '0')).join('');
-    
-    // Use dart_nostr's built-in NIP-19 implementation
-    return Nostr.instance.services.bech32.encodePublicKeyToNpub(hexPublicKey);
+
+    // Use NDK's built-in NIP-19 implementation
+    return Nip19.encodePubKey(hexPublicKey);
   }
 
   /// Get derived keys from stored mnemonic
