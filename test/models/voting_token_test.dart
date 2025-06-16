@@ -37,7 +37,7 @@ void main() {
         expect(serialized.length, greaterThan(0));
         
         final expectedString = 'test-election-123:42:npub1234567890abcdef:1234567890';
-        final expectedBytes = Uint8List.fromList(expectedString.codeUnits);
+        final expectedBytes = Uint8List.fromList(utf8.encode(expectedString));
         
         expect(serialized, equals(expectedBytes));
       });
@@ -145,7 +145,7 @@ void main() {
             'voter_id': 'json-voter-npub',
             'timestamp': 1111111111,
           },
-          'serialized_data': base64.encode(Uint8List.fromList('test-data'.codeUnits)),
+          'serialized_data': base64.encode(Uint8List.fromList(utf8.encode('test-data'))),
         };
         
         final token = VotingToken.fromJson(json);
@@ -154,7 +154,7 @@ void main() {
         expect(token.voteData.candidateId, equals(88));
         expect(token.voteData.voterId, equals('json-voter-npub'));
         expect(token.voteData.timestamp, equals(1111111111));
-        expect(token.serializedData, equals(Uint8List.fromList('test-data'.codeUnits)));
+        expect(token.serializedData, equals(Uint8List.fromList(utf8.encode('test-data'))));
       });
 
       test('should perform JSON round-trip conversion', () {
@@ -192,7 +192,7 @@ void main() {
         );
         
         final serialized = voteData.serialize();
-        expect(serialized, equals(Uint8List.fromList(':::0'.codeUnits)));
+        expect(serialized, equals(Uint8List.fromList(utf8.encode(':0::0'))));
         
         final json = voteData.toJson();
         final recreated = VoteData.fromJson(json);

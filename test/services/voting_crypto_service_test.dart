@@ -72,6 +72,7 @@ void main() {
     setUp(() {
       // Clear mock storage before each test
       MockSecureStorage.clear();
+      VotingCryptoService.setSecureStorage(const MockSecureStorage());
     });
 
     group('Voting Session Management', () {

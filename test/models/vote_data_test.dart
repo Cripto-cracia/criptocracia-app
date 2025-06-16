@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:criptocracia/services/blind_signature_service.dart';
 import '../services/test_utils/test_constants.dart';
@@ -74,7 +75,7 @@ void main() {
         
         final serialized = voteData.serialize();
         final expectedString = 'test-election:123:test-voter:1234567890';
-        final expectedBytes = Uint8List.fromList(expectedString.codeUnits);
+        final expectedBytes = Uint8List.fromList(utf8.encode(expectedString));
         
         expect(serialized, equals(expectedBytes));
       });
@@ -113,7 +114,7 @@ void main() {
         );
         
         final serialized = voteData.serialize();
-        final serializedString = String.fromCharCodes(serialized);
+        final serializedString = utf8.decode(serialized);
         
         expect(serializedString, contains('election-with-special:chars'));
         expect(serializedString, contains('voter-with-émojis-🗳️'));
@@ -131,7 +132,7 @@ void main() {
         
         final serialized = voteData.serialize();
         final expectedString = ':0::0';
-        final expectedBytes = Uint8List.fromList(expectedString.codeUnits);
+        final expectedBytes = Uint8List.fromList(utf8.encode(expectedString));
         
         expect(serialized, equals(expectedBytes));
       });

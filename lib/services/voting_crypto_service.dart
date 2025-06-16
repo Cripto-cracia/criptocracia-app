@@ -11,7 +11,7 @@ import 'nostr_key_manager.dart';
 /// Handles the complete process: nonce generation → blinding → signing → unblinding → vote casting
 class VotingCryptoService {
   // Secure storage instance for sensitive voting session data
-  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage(
+  static FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
       encryptedSharedPreferences: true,
     ),
@@ -19,6 +19,12 @@ class VotingCryptoService {
       accessibility: KeychainAccessibility.first_unlock_this_device,
     ),
   );
+
+  /// Set a custom secure storage instance (for testing)
+  @visibleForTesting
+  static void setSecureStorage(FlutterSecureStorage storage) {
+    _secureStorage = storage;
+  }
   
   // Storage keys for voting session data
   static const String _currentVoteSessionKey = 'current_vote_session';
