@@ -43,7 +43,7 @@ dependencies:
   basic_utils: ^5.7.0
   
   # Nostr protocol
-  dart_nostr: ^9.1.1
+  ndk: ^0.4.0
   
   # State management
   provider: ^6.1.2

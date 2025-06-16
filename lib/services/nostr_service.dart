@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:dart_nostr/dart_nostr.dart';
+import 'package:ndk/ndk.dart';
 
 class NostrService {
   bool _connected = false;
   StreamSubscription? _eventSubscription;
+  late Ndk _ndk;
 
   NostrService();
 
@@ -13,8 +14,14 @@ class NostrService {
     try {
       debugPrint('🔗 Attempting to connect to Nostr relay: $relayUrl');
 
-      // Initialize dart_nostr with the relay
-      await Nostr.instance.services.relays.init(relaysUrl: [relayUrl]);
+      // Initialize NDK with the relay
+      _ndk = Ndk(
+        NdkConfig(
+          eventVerifier: Bip340EventVerifier(),
+          cache: MemCacheManager(),
+          bootstrapRelays: [relayUrl],
+        ),
+      );
 
       _connected = true;
       debugPrint('✅ Successfully connected to Nostr relay: $relayUrl');
@@ -32,7 +39,7 @@ class NostrService {
       _eventSubscription = null;
 
       // Close all relay connections
-      await Nostr.instance.services.relays.disconnectFromRelays();
+      await _ndk.destroy();
 
       _connected = false;
       debugPrint('Disconnected from Nostr relays');
@@ -70,50 +77,44 @@ class NostrService {
     debugPrint('📅 Looking for kind 35000 events since: $since');
 
     // Create request filter for kind 35000 events from last 24 hours
-    final request = NostrRequest(
-      filters: [
-        NostrFilter(kinds: const [35000], since: since),
-      ],
+    final filter = Filter(
+      kinds: const [35000],
+      since: since.millisecondsSinceEpoch ~/ 1000,
     );
 
     debugPrint('📡 Starting subscription for kind 35000 events...');
 
-    // Start subscription using dart_nostr
-    final nostrStream = Nostr.instance.services.relays.startEventsSubscription(
-      request: request,
-    );
+    // Start subscription using NDK
+    final response = _ndk.requests.subscription(filters: [filter]);
 
     debugPrint('🎯 Subscription started, waiting for events...');
 
-    // Convert dart_nostr events to our NostrEvent format
-    return nostrStream.stream
-        .map((dartNostrEvent) {
+    // Convert NDK events to our NostrEvent format
+    return response.stream
+        .map((ndkEvent) {
           debugPrint(
-            '📥 Received event: kind=${dartNostrEvent.kind}, id=${dartNostrEvent.id}',
+            '📥 Received event: kind=${ndkEvent.kind}, id=${ndkEvent.id}',
           );
-          return dartNostrEvent;
+          return ndkEvent;
         })
-        .where((dartNostrEvent) {
+        .where((ndkEvent) {
           debugPrint(
-            '🔍 Filtering event: kind=${dartNostrEvent.kind}, hasContent=${dartNostrEvent.content != null}',
+            '🔍 Filtering event: kind=${ndkEvent.kind}, hasContent=${ndkEvent.content.isNotEmpty}',
           );
-          return dartNostrEvent.id != null &&
-              dartNostrEvent.kind != null &&
-              dartNostrEvent.content != null &&
-              dartNostrEvent.createdAt != null &&
-              dartNostrEvent.tags != null &&
-              dartNostrEvent.sig != null;
+          return ndkEvent.id.isNotEmpty &&
+              ndkEvent.content.isNotEmpty &&
+              ndkEvent.tags.isNotEmpty;
         })
-        .map((dartNostrEvent) {
-          debugPrint('✅ Processing valid event: ${dartNostrEvent.id}');
+        .map((ndkEvent) {
+          debugPrint('✅ Processing valid event: ${ndkEvent.id}');
           return NostrEvent(
-            id: dartNostrEvent.id!,
-            pubkey: dartNostrEvent.pubkey,
-            createdAt: dartNostrEvent.createdAt!.millisecondsSinceEpoch ~/ 1000,
-            kind: dartNostrEvent.kind!,
-            tags: dartNostrEvent.tags!,
-            content: dartNostrEvent.content!,
-            sig: dartNostrEvent.sig!,
+            id: ndkEvent.id,
+            pubkey: ndkEvent.pubKey,
+            createdAt: ndkEvent.createdAt,
+            kind: ndkEvent.kind,
+            tags: ndkEvent.tags,
+            content: ndkEvent.content,
+            sig: ndkEvent.sig,
           );
         })
         .handleError((error) {
