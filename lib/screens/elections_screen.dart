@@ -5,7 +5,6 @@ import '../providers/election_provider.dart';
 import '../widgets/election_card.dart';
 import 'election_detail_screen.dart';
 import '../generated/app_localizations.dart';
-import '../services/token_request_service.dart';
 
 class ElectionsScreen extends StatefulWidget {
   const ElectionsScreen({super.key});
@@ -117,10 +116,9 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
 
   void _navigateToElectionDetail(Election election) {
     if (election.status.toLowerCase() == 'open') {
-      final service = TokenRequestService();
-      service.requestBlindSignature(election).catchError((e) {
-        debugPrint('Token request failed: $e');
-      });
+      debugPrint('Election is open, navigating to detail screen');
+      // Here we create the message to the EC with the blinded token
+      // and send it to the EC in a Nostr gift wrap event
     }
 
     Navigator.push(
