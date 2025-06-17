@@ -5,6 +5,14 @@ import '../providers/election_provider.dart';
 import '../widgets/election_card.dart';
 import 'election_detail_screen.dart';
 import '../generated/app_localizations.dart';
+import '../services/nostr_service.dart';
+import '../services/nostr_key_manager.dart';
+import '../services/crypto_service.dart';
+import '../services/voter_session_service.dart';
+import '../config/app_config.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:blind_rsa_signatures/blind_rsa_signatures.dart';
 
 class ElectionsScreen extends StatefulWidget {
   const ElectionsScreen({super.key});
@@ -116,9 +124,7 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
 
   void _navigateToElectionDetail(Election election) {
     if (election.status.toLowerCase() == 'open') {
-      debugPrint('Election is open, navigating to detail screen');
-      // Here we create the message to the EC with the blinded token
-      // and send it to the EC in a Nostr gift wrap event
+      _requestBlindSignature(election);
     }
 
     Navigator.push(
@@ -127,5 +133,41 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
         builder: (context) => ElectionDetailScreen(election: election),
       ),
     );
+  }
+
+  Future<void> _requestBlindSignature(Election election) async {
+    try {
+      final keys = await NostrKeyManager.getDerivedKeys();
+      final privKey = keys['privateKey'] as Uint8List;
+      final pubKey = keys['publicKey'] as Uint8List;
+
+      String _bytesToHex(Uint8List b) =>
+          b.map((e) => e.toRadixString(16).padLeft(2, '0')).join();
+
+      final voterPrivHex = _bytesToHex(privKey);
+      final voterPubHex = _bytesToHex(pubKey);
+
+      final der = base64.decode(election.rsaPubKey);
+      final ecPk = PublicKey.fromDer(der);
+
+      final nonce = CryptoService.generateNonce();
+      final hashed = CryptoService.hashNonce(nonce);
+      final result = CryptoService.blindNonce(hashed, ecPk);
+
+      await VoterSessionService.saveSession(nonce, result);
+
+      final nostr = NostrService();
+      await nostr.connect(AppConfig.relayUrl);
+      await nostr.sendBlindSignatureRequest(
+        ecPubKey: AppConfig.ecPublicKey,
+        electionId: election.id,
+        blindedNonce: result.blindMessage,
+        voterPrivKeyHex: voterPrivHex,
+        voterPubKeyHex: voterPubHex,
+      );
+      await nostr.disconnect();
+    } catch (e) {
+      debugPrint('❌ Error requesting blind signature: $e');
+    }
   }
 }
