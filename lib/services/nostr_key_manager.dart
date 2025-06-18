@@ -133,7 +133,7 @@ class NostrKeyManager {
   /// Generate a simple test key pair for debugging
   static Map<String, dynamic> generateTestKeys() {
     final ec = getSecp256k1();
-    
+
     // Generate a random private key using a simple approach
     final random = Random.secure();
     BigInt privateKeyBigInt;
@@ -143,35 +143,38 @@ class NostrKeyManager {
       final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
       privateKeyBigInt = BigInt.parse(hex, radix: 16);
     } while (privateKeyBigInt >= ec.n || privateKeyBigInt == BigInt.zero);
-    
-    final privateKey = PrivateKey.fromHex(ec, privateKeyBigInt.toRadixString(16).padLeft(64, '0'));
-    
+
+    final privateKey = PrivateKey.fromHex(
+      ec,
+      privateKeyBigInt.toRadixString(16).padLeft(64, '0'),
+    );
+
     final publicKey = privateKey.publicKey;
-    
+
     // Convert private key to hex string (64 chars)
     final privKeyHex = privateKey.D.toRadixString(16).padLeft(64, '0');
-    
+
     // Convert private key to Uint8List (32 bytes)
     final privKeyBytes = <int>[];
     for (int i = 0; i < privKeyHex.length; i += 2) {
       privKeyBytes.add(int.parse(privKeyHex.substring(i, i + 2), radix: 16));
     }
-    
+
     // Get x-coordinate as public key (32 bytes for Nostr)
     final xCoordinate = publicKey.X.toRadixString(16).padLeft(64, '0');
     final pubKeyBytes = <int>[];
     for (int i = 0; i < xCoordinate.length; i += 2) {
       pubKeyBytes.add(int.parse(xCoordinate.substring(i, i + 2), radix: 16));
     }
-    
+
     final pubKeyUint8List = Uint8List.fromList(pubKeyBytes);
     final npub = publicKeyToNpub(pubKeyUint8List);
-    
+
     debugPrint('🧪 Generated test keys:');
     debugPrint('   Private: $privKeyHex');
     debugPrint('   Public: $xCoordinate');
     debugPrint('   npub: $npub');
-    
+
     return {
       'privateKey': Uint8List.fromList(privKeyBytes),
       'publicKey': pubKeyUint8List,
@@ -202,8 +205,7 @@ class NostrKeyManager {
       };
     } catch (e) {
       debugPrint('❌ Error with derived keys: $e');
-      debugPrint('🧪 Using test keys instead for debugging...');
-      return generateTestKeys();
+      throw Exception('Failed to derive keys from mnemonic: $e');
     }
   }
 

@@ -100,7 +100,7 @@ class NostrService {
       debugPrint('🔐 Attempting to login with:');
       debugPrint('   Public key: $pubKeyHex (${pubKeyHex.length} chars)');
       debugPrint('   Private key: $privKeyHex (${privKeyHex.length} chars)');
-      
+
       if (_ndk.accounts.hasAccount(pubKeyHex)) {
         debugPrint('🔄 Switching to existing account');
         _ndk.accounts.switchAccount(pubkey: pubKeyHex);
@@ -167,12 +167,14 @@ class NostrService {
       debugPrint('   Created: ${giftWrap.createdAt}');
       debugPrint('   Signature: ${giftWrap.sig}');
       debugPrint('   Signature length: ${giftWrap.sig.length}');
-      
+
       // Validate signature format before broadcasting
       if (giftWrap.sig.length != 128) {
-        debugPrint('⚠️ Warning: Signature length is ${giftWrap.sig.length}, expected 128');
+        throw Exception(
+          'Invalid signature length: ${giftWrap.sig.length}, expected 128',
+        );
       }
-      
+
       _ndk.broadcast.broadcast(nostrEvent: giftWrap);
 
       // Add a small delay to allow the broadcast to complete

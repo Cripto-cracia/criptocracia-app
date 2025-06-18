@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:blind_rsa_signatures/blind_rsa_signatures.dart';
 import 'package:criptocracia/services/crypto_service.dart';
-import 'test_utils/mock_key_pairs.dart';
 
 void main() {
   test('blind nonce produces verifiable signature', () async {
