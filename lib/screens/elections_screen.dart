@@ -113,7 +113,7 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
               final election = provider.elections[index];
               return ElectionCard(
                 election: election,
-                onTap: () => _navigateToElectionDetail(election),
+                onTap: () async => await _navigateToElectionDetail(election),
               );
             },
           );
@@ -122,10 +122,12 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
     );
   }
 
-  void _navigateToElectionDetail(Election election) {
+  Future<void> _navigateToElectionDetail(Election election) async {
     if (election.status.toLowerCase() == 'open') {
-      _requestBlindSignature(election);
+      await _requestBlindSignature(election);
     }
+
+    if (!mounted) return;
 
     Navigator.push(
       context,
