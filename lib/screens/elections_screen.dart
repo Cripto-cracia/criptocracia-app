@@ -141,11 +141,13 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
       final privKey = keys['privateKey'] as Uint8List;
       final pubKey = keys['publicKey'] as Uint8List;
 
-      String _bytesToHex(Uint8List b) =>
+      String bytesToHex(Uint8List b) =>
           b.map((e) => e.toRadixString(16).padLeft(2, '0')).join();
 
-      final voterPrivHex = _bytesToHex(privKey);
-      final voterPubHex = _bytesToHex(pubKey);
+      final voterPrivHex = bytesToHex(privKey);
+      final voterPubHex = bytesToHex(pubKey);
+      debugPrint('Voter private key (hex): $voterPrivHex');
+      debugPrint('Voter public key (hex): $voterPubHex');
 
       final der = base64.decode(election.rsaPubKey);
       final ecPk = PublicKey.fromDer(der);
@@ -156,16 +158,15 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
 
       await VoterSessionService.saveSession(nonce, result);
 
-      final nostr = NostrService();
-      await nostr.connect(AppConfig.relayUrl);
-      await nostr.sendBlindSignatureRequest(
+      // Use the shared NostrService instance to avoid concurrent connection issues
+      final nostr = NostrService.instance;
+      await nostr.sendBlindSignatureRequestSafe(
         ecPubKey: AppConfig.ecPublicKey,
         electionId: election.id,
         blindedNonce: result.blindMessage,
         voterPrivKeyHex: voterPrivHex,
         voterPubKeyHex: voterPubHex,
       );
-      await nostr.disconnect();
     } catch (e) {
       debugPrint('❌ Error requesting blind signature: $e');
     }

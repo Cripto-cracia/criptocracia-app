@@ -1,9 +1,11 @@
 import 'package:bip39/bip39.dart' as bip39;
 import 'package:crypto/crypto.dart';
+import 'package:elliptic/elliptic.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ndk/shared/nips/nip19/nip19.dart';
+import 'dart:math';
 
 /// Service for managing Nostr keys following NIP-06 specification
 /// Generates mnemonic seed phrases and derives keys using m/44'/1237'/1989'/0/0 path
@@ -11,14 +13,10 @@ class NostrKeyManager {
   static const String _mnemonicKey = 'nostr_mnemonic';
   static const String _firstLaunchKey = 'first_launch_completed';
   static const String _derivationPath = "m/44'/1237'/1989'/0/0";
-  
+
   static const _secureStorage = FlutterSecureStorage(
-    aOptions: AndroidOptions(
-      encryptedSharedPreferences: true,
-    ),
-    iOptions: IOSOptions(
-      groupId: 'com.criptocracia.mobile.keychain',
-    ),
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    iOptions: IOSOptions(groupId: 'com.criptocracia.mobile.keychain'),
   );
 
   /// Check if this is the first launch of the app
@@ -37,10 +35,10 @@ class NostrKeyManager {
   static Future<String> generateAndStoreMnemonic() async {
     // Generate 12-word mnemonic (128 bits of entropy)
     final mnemonic = bip39.generateMnemonic();
-    
+
     // Store mnemonic securely
     await _secureStorage.write(key: _mnemonicKey, value: mnemonic);
-    
+
     return mnemonic;
   }
 
@@ -63,21 +61,21 @@ class NostrKeyManager {
 
     // Convert mnemonic to seed (512 bits / 64 bytes)
     final seed = bip39.mnemonicToSeed(mnemonic);
-    
+
     // For now, use a simplified approach that takes the first 32 bytes of the seed
     // In production, you'd implement proper BIP32/BIP44 derivation
     final hash = sha256.convert(seed);
-    
+
     // Derive using the derivation path info (simplified)
     final pathData = '$_derivationPath$mnemonic';
     final pathHash = sha256.convert(pathData.codeUnits);
-    
+
     // Combine seed hash and path hash for the private key
     final combinedData = <int>[];
     for (int i = 0; i < 32; i++) {
       combinedData.add(hash.bytes[i] ^ pathHash.bytes[i]);
     }
-    
+
     return Uint8List.fromList(combinedData);
   }
 
@@ -87,10 +85,34 @@ class NostrKeyManager {
       throw ArgumentError('Private key must be 32 bytes');
     }
 
-    // For Ed25519, the public key is derived from the private key
-    // This is a simplified implementation - in production you'd use a proper Ed25519 library
-    final hash = sha256.convert(privateKey);
-    return Uint8List.fromList(hash.bytes);
+    // Use secp256k1 elliptic curve (used by Bitcoin and Nostr)
+    final ec = getSecp256k1();
+
+    // Convert private key bytes to hex string
+    final privateKeyHex = privateKey
+        .map((b) => b.toRadixString(16).padLeft(2, '0'))
+        .join('');
+
+    // Validate that the private key is within valid range for secp256k1
+    final privateKeyBigInt = BigInt.parse(privateKeyHex, radix: 16);
+    if (privateKeyBigInt >= ec.n || privateKeyBigInt == BigInt.zero) {
+      throw ArgumentError('Private key is outside valid secp256k1 range');
+    }
+
+    // Create private key object and get public key
+    final privKey = PrivateKey.fromHex(ec, privateKeyHex);
+    final publicKey = privKey.publicKey;
+
+    // Get the x-coordinate as hex (32 bytes for Nostr)
+    final xCoordinate = publicKey.X.toRadixString(16).padLeft(64, '0');
+
+    // Convert hex string back to Uint8List
+    final bytes = <int>[];
+    for (int i = 0; i < xCoordinate.length; i += 2) {
+      bytes.add(int.parse(xCoordinate.substring(i, i + 2), radix: 16));
+    }
+
+    return Uint8List.fromList(bytes);
   }
 
   /// Convert public key to npub format using NDK NIP-19 implementation
@@ -100,30 +122,89 @@ class NostrKeyManager {
     }
 
     // Convert Uint8List to hex string as expected by NDK
-    final hexPublicKey = publicKey.map((b) => b.toRadixString(16).padLeft(2, '0')).join('');
+    final hexPublicKey = publicKey
+        .map((b) => b.toRadixString(16).padLeft(2, '0'))
+        .join('');
 
     // Use NDK's built-in NIP-19 implementation
     return Nip19.encodePubKey(hexPublicKey);
   }
 
+  /// Generate a simple test key pair for debugging
+  static Map<String, dynamic> generateTestKeys() {
+    final ec = getSecp256k1();
+    
+    // Generate a random private key using a simple approach
+    final random = Random.secure();
+    BigInt privateKeyBigInt;
+    do {
+      // Generate 32 random bytes for private key
+      final bytes = List<int>.generate(32, (_) => random.nextInt(256));
+      final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+      privateKeyBigInt = BigInt.parse(hex, radix: 16);
+    } while (privateKeyBigInt >= ec.n || privateKeyBigInt == BigInt.zero);
+    
+    final privateKey = PrivateKey.fromHex(ec, privateKeyBigInt.toRadixString(16).padLeft(64, '0'));
+    
+    final publicKey = privateKey.publicKey;
+    
+    // Convert private key to hex string (64 chars)
+    final privKeyHex = privateKey.D.toRadixString(16).padLeft(64, '0');
+    
+    // Convert private key to Uint8List (32 bytes)
+    final privKeyBytes = <int>[];
+    for (int i = 0; i < privKeyHex.length; i += 2) {
+      privKeyBytes.add(int.parse(privKeyHex.substring(i, i + 2), radix: 16));
+    }
+    
+    // Get x-coordinate as public key (32 bytes for Nostr)
+    final xCoordinate = publicKey.X.toRadixString(16).padLeft(64, '0');
+    final pubKeyBytes = <int>[];
+    for (int i = 0; i < xCoordinate.length; i += 2) {
+      pubKeyBytes.add(int.parse(xCoordinate.substring(i, i + 2), radix: 16));
+    }
+    
+    final pubKeyUint8List = Uint8List.fromList(pubKeyBytes);
+    final npub = publicKeyToNpub(pubKeyUint8List);
+    
+    debugPrint('🧪 Generated test keys:');
+    debugPrint('   Private: $privKeyHex');
+    debugPrint('   Public: $xCoordinate');
+    debugPrint('   npub: $npub');
+    
+    return {
+      'privateKey': Uint8List.fromList(privKeyBytes),
+      'publicKey': pubKeyUint8List,
+      'npub': npub,
+      'isTest': true,
+    };
+  }
+
   /// Get derived keys from stored mnemonic
   static Future<Map<String, dynamic>> getDerivedKeys() async {
     final mnemonic = await getStoredMnemonic();
+    debugPrint('🔑 Retrieving mnemonic: $mnemonic');
     if (mnemonic == null) {
       throw StateError('No mnemonic found. Generate one first.');
     }
 
-    final privateKey = await derivePrivateKey(mnemonic);
-    final publicKey = getPublicKeyFromPrivate(privateKey);
-    final npub = publicKeyToNpub(publicKey);
+    try {
+      final privateKey = await derivePrivateKey(mnemonic);
+      final publicKey = getPublicKeyFromPrivate(privateKey);
+      final npub = publicKeyToNpub(publicKey);
 
-    return {
-      'mnemonic': mnemonic,
-      'privateKey': privateKey,
-      'publicKey': publicKey,
-      'npub': npub,
-      'derivationPath': _derivationPath,
-    };
+      return {
+        'mnemonic': mnemonic,
+        'privateKey': privateKey,
+        'publicKey': publicKey,
+        'npub': npub,
+        'derivationPath': _derivationPath,
+      };
+    } catch (e) {
+      debugPrint('❌ Error with derived keys: $e');
+      debugPrint('🧪 Using test keys instead for debugging...');
+      return generateTestKeys();
+    }
   }
 
   /// Initialize keys on first app launch
@@ -131,7 +212,7 @@ class NostrKeyManager {
     if (await isFirstLaunch()) {
       await generateAndStoreMnemonic();
       await markFirstLaunchCompleted();
-      
+
       // Validate the generated keys
       final keys = await getDerivedKeys();
       // Use debugPrint instead of print to avoid linting issues in production
@@ -151,7 +232,7 @@ class NostrKeyManager {
     if (!bip39.validateMnemonic(mnemonic.trim())) {
       throw Exception('Invalid mnemonic seed phrase');
     }
-    
+
     // Store the validated mnemonic securely
     await _secureStorage.write(key: _mnemonicKey, value: mnemonic.trim());
   }

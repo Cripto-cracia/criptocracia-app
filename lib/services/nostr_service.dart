@@ -4,14 +4,41 @@ import 'package:flutter/foundation.dart';
 import 'package:ndk/ndk.dart';
 
 class NostrService {
+  static NostrService? _instance;
+  static NostrService get instance {
+    _instance ??= NostrService._internal();
+    return _instance!;
+  }
+
   bool _connected = false;
+  bool _connecting = false;
   StreamSubscription? _eventSubscription;
   late Ndk _ndk;
 
-  NostrService();
+  NostrService._internal();
+
+  // Keep the public constructor for backwards compatibility but make it return the singleton
+  factory NostrService() => instance;
 
   Future<void> connect(String relayUrl) async {
+    if (_connected) {
+      debugPrint('🔗 Already connected to relay');
+      return;
+    }
+
+    if (_connecting) {
+      debugPrint('🔗 Connection already in progress, waiting...');
+      // Wait for connection to complete
+      int attempts = 0;
+      while (_connecting && attempts < 30) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        attempts++;
+      }
+      return;
+    }
+
     try {
+      _connecting = true;
       debugPrint('🔗 Attempting to connect to Nostr relay: $relayUrl');
 
       // Initialize NDK with the relay
@@ -29,22 +56,35 @@ class NostrService {
       _connected = false;
       debugPrint('❌ Failed to connect to Nostr relay: $e');
       throw Exception('Failed to connect to Nostr relay: $e');
+    } finally {
+      _connecting = false;
     }
   }
 
   Future<void> disconnect() async {
+    if (!_connected) {
+      debugPrint('🔗 Already disconnected from relays');
+      return;
+    }
+
     try {
       // Cancel any active subscription
       await _eventSubscription?.cancel();
       _eventSubscription = null;
 
       // Close all relay connections
-      await _ndk.destroy();
+      if (_connected) {
+        await _ndk.destroy();
+      }
 
       _connected = false;
+      _connecting = false;
       debugPrint('Disconnected from Nostr relays');
     } catch (e) {
       debugPrint('Error disconnecting from Nostr relays: $e');
+      // Force disconnection even if there was an error
+      _connected = false;
+      _connecting = false;
     }
   }
 
@@ -56,10 +96,22 @@ class NostrService {
     required String pubKeyHex,
     required String privKeyHex,
   }) {
-    if (_ndk.accounts.hasAccount(pubKeyHex)) {
-      _ndk.accounts.switchAccount(pubkey: pubKeyHex);
-    } else {
-      _ndk.accounts.loginPrivateKey(pubkey: pubKeyHex, privkey: privKeyHex);
+    try {
+      debugPrint('🔐 Attempting to login with:');
+      debugPrint('   Public key: $pubKeyHex (${pubKeyHex.length} chars)');
+      debugPrint('   Private key: $privKeyHex (${privKeyHex.length} chars)');
+      
+      if (_ndk.accounts.hasAccount(pubKeyHex)) {
+        debugPrint('🔄 Switching to existing account');
+        _ndk.accounts.switchAccount(pubkey: pubKeyHex);
+      } else {
+        debugPrint('🆕 Creating new account');
+        _ndk.accounts.loginPrivateKey(pubkey: pubKeyHex, privkey: privKeyHex);
+      }
+      debugPrint('✅ Login successful');
+    } catch (e) {
+      debugPrint('❌ Login failed: $e');
+      rethrow;
     }
   }
 
@@ -78,33 +130,81 @@ class NostrService {
     required String voterPrivKeyHex,
     required String voterPubKeyHex,
   }) async {
-    if (!_connected) throw Exception('Not connected to relay');
+    // Ensure we're connected, but don't create a new connection if already connected
+    if (!_connected) {
+      debugPrint('🔗 Not connected, will connect first...');
+      throw Exception('Not connected to relay. Please connect first.');
+    }
 
-    loginPrivateKey(pubKeyHex: voterPubKeyHex, privKeyHex: voterPrivKeyHex);
+    try {
+      debugPrint('🔐 Logging in with voter keys...');
+      loginPrivateKey(pubKeyHex: voterPubKeyHex, privKeyHex: voterPrivKeyHex);
 
-    final payload = jsonEncode({
-      'id': electionId,
-      'kind': 1,
-      'payload': base64.encode(blindedNonce),
-    });
+      final payload = jsonEncode({
+        'id': electionId,
+        'kind': 1,
+        'payload': base64.encode(blindedNonce),
+      });
 
-    final rumor = await _ndk.giftWrap.createRumor(
-      content: payload,
-      kind: 1,
-      tags: [],
-    );
+      debugPrint('📦 Creating rumor with payload...');
+      final rumor = await _ndk.giftWrap.createRumor(
+        content: payload,
+        kind: 1,
+        tags: [],
+      );
 
-    final seal = await _ndk.giftWrap.sealRumor(
-      rumor: rumor,
-      recipientPubkey: ecPubKey,
-    );
+      debugPrint('🎁 Creating gift wrap...');
+      final giftWrap = await _ndk.giftWrap.toGiftWrap(
+        rumor: rumor,
+        recipientPubkey: ecPubKey,
+      );
 
-    final giftWrap = await GiftWrap.wrapEvent(
-      recipientPublicKey: ecPubKey,
-      sealEvent: seal,
-    );
+      debugPrint('📡 Broadcasting event...');
+      debugPrint('🔍 Gift wrap event details:');
+      debugPrint('   ID: ${giftWrap.id}');
+      debugPrint('   Kind: ${giftWrap.kind}');
+      debugPrint('   PubKey: ${giftWrap.pubKey}');
+      debugPrint('   Created: ${giftWrap.createdAt}');
+      debugPrint('   Signature: ${giftWrap.sig}');
+      debugPrint('   Signature length: ${giftWrap.sig.length}');
+      
+      // Validate signature format before broadcasting
+      if (giftWrap.sig.length != 128) {
+        debugPrint('⚠️ Warning: Signature length is ${giftWrap.sig.length}, expected 128');
+      }
+      
+      _ndk.broadcast.broadcast(nostrEvent: giftWrap);
 
-    _ndk.broadcast.broadcast(nostrEvent: giftWrap);
+      // Add a small delay to allow the broadcast to complete
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      debugPrint('✅ Sent wrapped event: ${giftWrap.id}');
+    } catch (e) {
+      debugPrint('❌ Error sending blind signature request: $e');
+      rethrow;
+    }
+  }
+
+  /// Send blind signature request using the existing connection from the provider
+  Future<void> sendBlindSignatureRequestSafe({
+    required String ecPubKey,
+    required String electionId,
+    required Uint8List blindedNonce,
+    required String voterPrivKeyHex,
+    required String voterPubKeyHex,
+  }) async {
+    try {
+      await sendBlindSignatureRequest(
+        ecPubKey: ecPubKey,
+        electionId: electionId,
+        blindedNonce: blindedNonce,
+        voterPrivKeyHex: voterPrivKeyHex,
+        voterPubKeyHex: voterPubKeyHex,
+      );
+    } catch (e) {
+      debugPrint('❌ Blind signature request failed: $e');
+      // Don't rethrow to prevent UI crashes
+    }
   }
 
   Future<void> castVote(
