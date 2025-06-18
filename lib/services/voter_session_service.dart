@@ -1,38 +1,42 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:blind_rsa_signatures/blind_rsa_signatures.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class VoterSessionService {
   static const _nonceKey = 'voter_nonce';
   static const _blindingResultKey = 'voter_blinding_result';
 
+  static const _secureStorage = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    iOptions: IOSOptions(groupId: 'com.criptocracia.mobile.keychain'),
+  );
+
   static Future<void> saveSession(
     Uint8List nonce,
     BlindingResult result,
   ) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_nonceKey, base64.encode(nonce));
-    await prefs.setString(_blindingResultKey, jsonEncode(result.toJson()));
+    await _secureStorage.write(key: _nonceKey, value: base64.encode(nonce));
+    await _secureStorage.write(
+      key: _blindingResultKey,
+      value: jsonEncode(result.toJson()),
+    );
   }
 
   static Future<Uint8List?> getNonce() async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString(_nonceKey);
+    final data = await _secureStorage.read(key: _nonceKey);
     if (data == null) return null;
     return base64.decode(data);
   }
 
   static Future<BlindingResult?> getBlindingResult() async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString(_blindingResultKey);
+    final data = await _secureStorage.read(key: _blindingResultKey);
     if (data == null) return null;
     return BlindingResult.fromJson(jsonDecode(data));
   }
 
   static Future<void> clearSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_nonceKey);
-    await prefs.remove(_blindingResultKey);
+    await _secureStorage.delete(key: _nonceKey);
+    await _secureStorage.delete(key: _blindingResultKey);
   }
 }
