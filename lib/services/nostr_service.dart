@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:ndk/ndk.dart';
+import 'package:dart_nostr/dart_nostr.dart';
+import 'package:nip59/nip59.dart';
 
 class NostrService {
   static NostrService? _instance;
@@ -13,7 +14,8 @@ class NostrService {
   bool _connected = false;
   bool _connecting = false;
   StreamSubscription? _eventSubscription;
-  late Ndk _ndk;
+  late Nostr _nostr;
+  NostrKeyPairs? _currentKeyPair;
 
   NostrService._internal();
 
@@ -41,13 +43,10 @@ class NostrService {
       _connecting = true;
       debugPrint('🔗 Attempting to connect to Nostr relay: $relayUrl');
 
-      // Initialize NDK with the relay
-      _ndk = Ndk(
-        NdkConfig(
-          eventVerifier: Bip340EventVerifier(),
-          cache: MemCacheManager(),
-          bootstrapRelays: [relayUrl],
-        ),
+      // Initialize dart_nostr with the relay
+      _nostr = Nostr.instance;
+      await _nostr.services.relays.init(
+        relaysUrl: [relayUrl],
       );
 
       _connected = true;
@@ -72,23 +71,20 @@ class NostrService {
       await _eventSubscription?.cancel();
       _eventSubscription = null;
 
-      // Close all relay connections
-      if (_connected) {
-        await _ndk.destroy();
-      }
+      // Close all relay connections - dart_nostr handles this automatically
 
       _connected = false;
       _connecting = false;
+      _currentKeyPair = null;
       debugPrint('Disconnected from Nostr relays');
     } catch (e) {
       debugPrint('Error disconnecting from Nostr relays: $e');
       // Force disconnection even if there was an error
       _connected = false;
       _connecting = false;
+      _currentKeyPair = null;
     }
   }
-
-  String get publicKey => 'mock_public_key'; // TODO: Generate actual key pair
 
   bool get isConnected => _connected;
 
@@ -101,16 +97,18 @@ class NostrService {
       debugPrint('   Public key: $pubKeyHex (${pubKeyHex.length} chars)');
       debugPrint('   Private key: $privKeyHex (${privKeyHex.length} chars)');
 
-      if (_ndk.accounts.hasAccount(pubKeyHex)) {
-        debugPrint('🔄 Switching to existing account');
-        _ndk.accounts.switchAccount(pubkey: pubKeyHex);
-      } else {
-        debugPrint('🆕 Creating new account');
-        _ndk.accounts.loginPrivateKey(pubkey: pubKeyHex, privkey: privKeyHex);
+      // Generate key pair from private key using dart_nostr
+      _currentKeyPair = _nostr.services.keys.generateKeyPairFromExistingPrivateKey(privKeyHex);
+      
+      // Validate that the generated public key matches the expected one
+      if (_currentKeyPair!.public != pubKeyHex) {
+        throw Exception('Generated public key does not match expected key');
       }
+      
       debugPrint('✅ Login successful');
     } catch (e) {
       debugPrint('❌ Login failed: $e');
+      _currentKeyPair = null;
       rethrow;
     }
   }
@@ -140,47 +138,56 @@ class NostrService {
       debugPrint('🔐 Logging in with voter keys...');
       loginPrivateKey(pubKeyHex: voterPubKeyHex, privKeyHex: voterPrivKeyHex);
 
+      if (_currentKeyPair == null) {
+        throw Exception('No current key pair available');
+      }
+
       final payload = jsonEncode({
         'id': electionId,
         'kind': 1,
         'payload': base64.encode(blindedNonce),
       });
 
-      debugPrint('📦 Creating rumor with payload...');
-      final rumor = await _ndk.giftWrap.createRumor(
-        content: payload,
-        kind: 1,
-        tags: [],
-      );
-
-      debugPrint('🎁 Creating gift wrap...');
-      final giftWrap = await _ndk.giftWrap.toGiftWrap(
-        rumor: rumor,
-        recipientPubkey: ecPubKey,
+      debugPrint('📦 Creating NIP-59 gift wrap...');
+      
+      // Create NIP-59 gift wrap using the nip59 library
+      final giftWrapEvent = await Nip59.createNIP59Event(
+        payload,
+        ecPubKey,
+        voterPrivKeyHex,
+        generateKeyPairFromPrivateKey: _nostr.services.keys.generateKeyPairFromExistingPrivateKey,
+        generateKeyPair: _nostr.services.keys.generateKeyPair,
+        isValidPrivateKey: _nostr.services.keys.isValidPrivateKey,
       );
 
       debugPrint('📡 Broadcasting event...');
       debugPrint('🔍 Gift wrap event details:');
-      debugPrint('   ID: ${giftWrap.id}');
-      debugPrint('   Kind: ${giftWrap.kind}');
-      debugPrint('   PubKey: ${giftWrap.pubKey}');
-      debugPrint('   Created: ${giftWrap.createdAt}');
-      debugPrint('   Signature: ${giftWrap.sig}');
-      debugPrint('   Signature length: ${giftWrap.sig.length}');
-
-      // Validate signature format before broadcasting
-      if (giftWrap.sig.length != 128) {
-        throw Exception(
-          'Invalid signature length: ${giftWrap.sig.length}, expected 128',
-        );
+      debugPrint('   ID: ${giftWrapEvent.id}');
+      debugPrint('   Kind: ${giftWrapEvent.kind}');
+      debugPrint('   PubKey: ${giftWrapEvent.pubkey}');
+      debugPrint('   Created: ${giftWrapEvent.createdAt}');
+      final signature = giftWrapEvent.sig;
+      debugPrint('   Signature: $signature');
+      if (signature != null) {
+        debugPrint('   Signature length: ${signature.length}');
+        
+        // Validate signature format before broadcasting
+        if (signature.length != 128) {
+          throw Exception(
+            'Invalid signature length: ${signature.length}, expected 128',
+          );
+        }
+      } else {
+        throw Exception('Event signature is null');
       }
 
-      _ndk.broadcast.broadcast(nostrEvent: giftWrap);
+      // Broadcast using dart_nostr
+      _nostr.services.relays.sendEventToRelays(giftWrapEvent);
 
       // Add a small delay to allow the broadcast to complete
       await Future.delayed(const Duration(milliseconds: 500));
 
-      debugPrint('✅ Sent wrapped event: ${giftWrap.id}');
+      debugPrint('✅ Sent wrapped event: ${giftWrapEvent.id}');
     } catch (e) {
       debugPrint('❌ Error sending blind signature request: $e');
       rethrow;
@@ -230,44 +237,52 @@ class NostrService {
     debugPrint('📅 Looking for kind 35000 events since: $since');
 
     // Create request filter for kind 35000 events from last 24 hours
-    final filter = Filter(
-      kinds: const [35000],
-      since: since.millisecondsSinceEpoch ~/ 1000,
+    final filter = NostrFilter(
+      kinds: [35000],
+      since: since,
     );
 
     debugPrint('📡 Starting subscription for kind 35000 events...');
 
-    // Start subscription using NDK
-    final response = _ndk.requests.subscription(filters: [filter]);
+    // Create request using dart_nostr
+    final request = NostrRequest(
+      filters: [filter],
+    );
+
+    // Start subscription using dart_nostr
+    final nostrStream = _nostr.services.relays.startEventsSubscription(
+      request: request,
+    );
 
     debugPrint('🎯 Subscription started, waiting for events...');
 
-    // Convert NDK events to our NostrEvent format
-    return response.stream
-        .map((ndkEvent) {
+    // Convert dart_nostr events to our NostrEvent format
+    return nostrStream.stream
+        .map((dartNostrEvent) {
           debugPrint(
-            '📥 Received event: kind=${ndkEvent.kind}, id=${ndkEvent.id}',
+            '📥 Received event: kind=${dartNostrEvent.kind}, id=${dartNostrEvent.id}',
           );
-          return ndkEvent;
+          return dartNostrEvent;
         })
-        .where((ndkEvent) {
+        .where((dartNostrEvent) {
+          final hasContent = dartNostrEvent.content?.isNotEmpty ?? false;
           debugPrint(
-            '🔍 Filtering event: kind=${ndkEvent.kind}, hasContent=${ndkEvent.content.isNotEmpty}',
+            '🔍 Filtering event: kind=${dartNostrEvent.kind}, hasContent=$hasContent',
           );
-          return ndkEvent.id.isNotEmpty &&
-              ndkEvent.content.isNotEmpty &&
-              ndkEvent.tags.isNotEmpty;
+          return (dartNostrEvent.id?.isNotEmpty ?? false) &&
+              (dartNostrEvent.content?.isNotEmpty ?? false) &&
+              (dartNostrEvent.tags?.isNotEmpty ?? false);
         })
-        .map((ndkEvent) {
-          debugPrint('✅ Processing valid event: ${ndkEvent.id}');
+        .map((dartNostrEvent) {
+          debugPrint('✅ Processing valid event: ${dartNostrEvent.id}');
           return NostrEvent(
-            id: ndkEvent.id,
-            pubkey: ndkEvent.pubKey,
-            createdAt: ndkEvent.createdAt,
-            kind: ndkEvent.kind,
-            tags: ndkEvent.tags,
-            content: ndkEvent.content,
-            sig: ndkEvent.sig,
+            id: dartNostrEvent.id ?? '',
+            pubkey: dartNostrEvent.pubkey ?? '',
+            createdAt: (dartNostrEvent.createdAt?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch) ~/ 1000,
+            kind: dartNostrEvent.kind ?? 0,
+            tags: dartNostrEvent.tags?.map((tag) => tag.map((e) => e.toString()).toList()).toList() ?? [],
+            content: dartNostrEvent.content ?? '',
+            sig: dartNostrEvent.sig ?? '',
           );
         })
         .handleError((error) {

@@ -1,16 +1,13 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:blind_rsa_signatures/blind_rsa_signatures.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'secure_storage_service.dart';
 
 class VoterSessionService {
   static const _nonceKey = 'voter_nonce';
   static const _blindingResultKey = 'voter_blinding_result';
 
-  static const _secureStorage = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-    iOptions: IOSOptions(groupId: 'com.criptocracia.mobile.keychain'),
-  );
+  static const _secureStorage = FlutterSecureStorage();
 
   static Future<void> saveSession(
     Uint8List nonce,

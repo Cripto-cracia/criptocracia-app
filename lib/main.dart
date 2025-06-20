@@ -8,10 +8,22 @@ import 'screens/elections_screen.dart';
 import 'screens/results_screen.dart';
 import 'screens/account_screen.dart';
 import 'services/nostr_key_manager.dart';
+import 'services/secure_storage_service.dart';
 import 'generated/app_localizations.dart';
 
-void main(List<String> args) {
+void main(List<String> args) async {
+  // Ensure Flutter bindings are initialized
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Parse command line arguments
   AppConfig.parseArguments(args);
+  
+  // Initialize secure storage
+  await SecureStorageService.init();
+  
+  // Initialize Nostr keys if needed
+  await NostrKeyManager.initializeKeysIfNeeded();
+  
   runApp(const CriptocraciaApp());
 }
 
