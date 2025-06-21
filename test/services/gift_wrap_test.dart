@@ -45,32 +45,29 @@ void main() {
   });
 
   test('decrypt NIP-59 gift wrap event', () async {
-    // Test configuration
-    const recipientPubkey =
-        '0000001ace57d0da17fc18562f4658ac6d093b2cc8bb7bd44853d0c196e24a9c';
-    const recipientPrivkey =
-        '53b4bb170c8c2d1ffdb2c42e93d9a83e782669b0d6e34aba706b7bcac840c28b';
-    const senderPrivkey =
-        '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
-    const originalMessage = 'test message for decryption';
-
     // Initialize dart_nostr
     final nostr = Nostr.instance;
 
-    // Create NIP-59 gift wrap event
+    // Generate proper key pairs for sender and recipient
+    final recipientKeyPair = nostr.services.keys.generateKeyPair();
+    final senderKeyPair = nostr.services.keys.generateKeyPair();
+    
+    const originalMessage = 'test message for decryption';
+
+    // Create NIP-59 gift wrap event with proper key pair
     final giftWrapEvent = await Nip59.createNIP59Event(
       originalMessage,
-      recipientPubkey,
-      senderPrivkey,
+      recipientKeyPair.public,
+      senderKeyPair.private,
       generateKeyPairFromPrivateKey: nostr.services.keys.generateKeyPairFromExistingPrivateKey,
       generateKeyPair: nostr.services.keys.generateKeyPair,
       isValidPrivateKey: nostr.services.keys.isValidPrivateKey,
     );
 
-    // Decrypt the gift wrap event
+    // Decrypt the gift wrap event using the recipient's private key
     final decryptedEvent = await Nip59.decryptNIP59Event(
       giftWrapEvent,
-      recipientPrivkey,
+      recipientKeyPair.private,
       isValidPrivateKey: nostr.services.keys.isValidPrivateKey,
     );
 
