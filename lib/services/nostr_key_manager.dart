@@ -1,9 +1,9 @@
 import 'package:bip39/bip39.dart' as bip39;
-import 'package:crypto/crypto.dart';
 import 'package:elliptic/elliptic.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bech32/bech32.dart';
+import 'package:blockchain_utils/bip/bip/bip32/bip32.dart';
 import 'secure_storage_service.dart';
 import 'dart:math';
 
@@ -49,29 +49,43 @@ class NostrKeyManager {
 
   /// Derive private key from mnemonic using NIP-06 specification
   /// Uses derivation path: m/44'/1237'/1989'/0/0
+  /// Implements proper BIP32/BIP44 hierarchical deterministic key derivation
   static Future<Uint8List> derivePrivateKey(String mnemonic) async {
     if (!validateMnemonic(mnemonic)) {
       throw ArgumentError('Invalid mnemonic phrase');
     }
 
-    // Convert mnemonic to seed (512 bits / 64 bytes)
-    final seed = bip39.mnemonicToSeed(mnemonic);
-
-    // For now, use a simplified approach that takes the first 32 bytes of the seed
-    // In production, you'd implement proper BIP32/BIP44 derivation
-    final hash = sha256.convert(seed);
-
-    // Derive using the derivation path info (simplified)
-    final pathData = '$_derivationPath$mnemonic';
-    final pathHash = sha256.convert(pathData.codeUnits);
-
-    // Combine seed hash and path hash for the private key
-    final combinedData = <int>[];
-    for (int i = 0; i < 32; i++) {
-      combinedData.add(hash.bytes[i] ^ pathHash.bytes[i]);
+    try {
+      // Convert mnemonic to seed (512 bits / 64 bytes) using BIP39
+      final seed = bip39.mnemonicToSeed(mnemonic);
+      
+      // Create BIP32 master key from seed using secp256k1 curve (Bitcoin/Nostr standard)
+      final masterKey = Bip32Slip10Secp256k1.fromSeed(seed);
+      
+      // Derive using NIP-06 path: m/44'/1237'/1989'/0/0
+      // 44' = Purpose (BIP44)
+      // 1237' = Coin type (Nostr)
+      // 1989' = Account
+      // 0 = Change (external chain)
+      // 0 = Address index
+      final derivedKey = masterKey
+          .childKey(Bip32KeyIndex(44 + 0x80000000))    // Purpose: BIP44 (hardened)
+          .childKey(Bip32KeyIndex(1237 + 0x80000000))  // Coin type: Nostr (hardened)
+          .childKey(Bip32KeyIndex(1989 + 0x80000000))  // Account (hardened)
+          .childKey(Bip32KeyIndex(0))                   // Change: external
+          .childKey(Bip32KeyIndex(0));                  // Address index
+      
+      // Return the 32-byte private key as Uint8List
+      final privateKeyBytes = Uint8List.fromList(derivedKey.privateKey.raw);
+      
+      if (privateKeyBytes.length != 32) {
+        throw Exception('Derived private key must be 32 bytes, got ${privateKeyBytes.length}');
+      }
+      
+      return privateKeyBytes;
+    } catch (e) {
+      throw Exception('Failed to derive private key using BIP32/BIP44: $e');
     }
-
-    return Uint8List.fromList(combinedData);
   }
 
   /// Get public key from private key (32 bytes -> 32 bytes)

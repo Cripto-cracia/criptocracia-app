@@ -18,11 +18,40 @@ void main(List<String> args) async {
   // Parse command line arguments
   AppConfig.parseArguments(args);
   
-  // Initialize secure storage
-  await SecureStorageService.init();
-  
-  // Initialize Nostr keys if needed
-  await NostrKeyManager.initializeKeysIfNeeded();
+  try {
+    // Initialize secure storage
+    await SecureStorageService.init();
+    
+    // Initialize Nostr keys if needed
+    await NostrKeyManager.initializeKeysIfNeeded();
+  } catch (e) {
+    debugPrint('❌ Critical initialization error: $e');
+    // Show a simple error app
+    runApp(MaterialApp(
+      title: 'Criptocracia - Error',
+      home: Scaffold(
+        appBar: AppBar(title: const Text('Initialization Error')),
+        body: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Critical initialization error:',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                e.toString(),
+                style: const TextStyle(fontSize: 14, fontFamily: 'monospace'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ));
+    return;
+  }
   
   runApp(const CriptocraciaApp());
 }

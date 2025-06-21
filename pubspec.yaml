@@ -64,6 +64,9 @@ dependencies:
   # Bech32 encoding for NIP-19
   bech32: ^0.2.2
   
+  # BIP32/BIP44 hierarchical deterministic key derivation
+  blockchain_utils: ^3.0.0
+  
   # Secure storage
   hive: ^2.2.3
   hive_flutter: ^1.1.0
