@@ -45,16 +45,31 @@ class NostrService {
 
       // Initialize dart_nostr with the relay
       _nostr = Nostr.instance;
-      await _nostr.services.relays.init(
-        relaysUrl: [relayUrl],
-      );
+      
+      // Use timeout for relay initialization
+      await Future.any([
+        _nostr.services.relays.init(relaysUrl: [relayUrl]),
+        Future.delayed(const Duration(seconds: 10)).then((_) => 
+          throw TimeoutException('Relay connection timeout', const Duration(seconds: 10))),
+      ]);
+
+      // Connection established - dart_nostr doesn't expose connection status checking
+      // The init method will throw an exception if connection fails
 
       _connected = true;
       debugPrint('✅ Successfully connected to Nostr relay: $relayUrl');
     } catch (e) {
       _connected = false;
       debugPrint('❌ Failed to connect to Nostr relay: $e');
-      throw Exception('Failed to connect to Nostr relay: $e');
+      
+      // Provide more specific error messages
+      if (e is TimeoutException) {
+        throw Exception('Connection timeout: Please check your internet connection and try again');
+      } else if (e.toString().contains('WebSocket')) {
+        throw Exception('WebSocket connection failed: Please check the relay URL and try again');
+      } else {
+        throw Exception('Failed to connect to Nostr relay: $e');
+      }
     } finally {
       _connecting = false;
     }
@@ -67,18 +82,24 @@ class NostrService {
     }
 
     try {
+      debugPrint('🔌 Disconnecting from Nostr relays...');
+      
       // Cancel any active subscription
       await _eventSubscription?.cancel();
       _eventSubscription = null;
 
-      // Close all relay connections - dart_nostr handles this automatically
+      // Close all relay connections with timeout
+      await Future.any([
+        _nostr.services.relays.disconnectFromRelays(),
+        Future.delayed(const Duration(seconds: 5)),
+      ]);
 
       _connected = false;
       _connecting = false;
       _currentKeyPair = null;
-      debugPrint('Disconnected from Nostr relays');
+      debugPrint('✅ Disconnected from Nostr relays');
     } catch (e) {
-      debugPrint('Error disconnecting from Nostr relays: $e');
+      debugPrint('⚠️ Error disconnecting from Nostr relays: $e');
       // Force disconnection even if there was an error
       _connected = false;
       _connecting = false;
@@ -95,13 +116,29 @@ class NostrService {
     try {
       debugPrint('🔐 Attempting to login with:');
       debugPrint('   Public key: $pubKeyHex (${pubKeyHex.length} chars)');
-      debugPrint('   Private key: $privKeyHex (${privKeyHex.length} chars)');
+      debugPrint('   Private key: ${privKeyHex.substring(0, 8)}... (${privKeyHex.length} chars)');
+
+      // Validate private key format
+      if (!_nostr.services.keys.isValidPrivateKey(privKeyHex)) {
+        throw Exception('Invalid private key format');
+      }
+
+      // Validate key lengths
+      if (pubKeyHex.length != 64) {
+        throw Exception('Invalid public key length: expected 64 characters, got ${pubKeyHex.length}');
+      }
+      if (privKeyHex.length != 64) {
+        throw Exception('Invalid private key length: expected 64 characters, got ${privKeyHex.length}');
+      }
 
       // Generate key pair from private key using dart_nostr
       _currentKeyPair = _nostr.services.keys.generateKeyPairFromExistingPrivateKey(privKeyHex);
       
       // Validate that the generated public key matches the expected one
       if (_currentKeyPair!.public != pubKeyHex) {
+        debugPrint('❌ Key mismatch:');
+        debugPrint('   Expected: $pubKeyHex');
+        debugPrint('   Generated: ${_currentKeyPair!.public}');
         throw Exception('Generated public key does not match expected key');
       }
       
@@ -277,7 +314,7 @@ class NostrService {
           debugPrint('✅ Processing valid event: ${dartNostrEvent.id}');
           return NostrEvent(
             id: dartNostrEvent.id ?? '',
-            pubkey: dartNostrEvent.pubkey ?? '',
+            pubkey: dartNostrEvent.pubkey,
             createdAt: (dartNostrEvent.createdAt?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch) ~/ 1000,
             kind: dartNostrEvent.kind ?? 0,
             tags: dartNostrEvent.tags?.map((tag) => tag.map((e) => e.toString()).toList()).toList() ?? [],
@@ -292,31 +329,228 @@ class NostrService {
   }
 
   Stream<NostrEvent> subscribeToResults(String electionId) {
-    // TODO: Implement actual Nostr results subscription
-    return Stream.periodic(const Duration(seconds: 5), (count) {
-      return NostrEvent(
-        id: "mock_result_$count",
-        pubkey: "mock_pubkey",
-        createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-        kind: 1,
-        tags: [],
-        content: jsonEncode({
-          'type': 'election_results',
-          'election_id': electionId,
-          'results': {'1': 10 + count * 2, '2': 8 + count * 3},
-        }),
-        sig: "mock_signature",
-      );
-    });
+    if (!_connected) {
+      throw Exception('Not connected to relay');
+    }
+
+    debugPrint('📊 Subscribing to results for election: $electionId');
+
+    // Create filter for election results (kind 1 with election_id tag)
+    final filter = NostrFilter(
+      kinds: [1], // Regular text notes that contain results
+      since: DateTime.now().subtract(const Duration(hours: 24)),
+      e: [electionId], // Election event reference
+      t: ['election_results'], // Type tag
+    );
+
+    debugPrint('📡 Starting results subscription...');
+
+    final request = NostrRequest(
+      filters: [filter],
+    );
+
+    final nostrStream = _nostr.services.relays.startEventsSubscription(
+      request: request,
+    );
+
+    return nostrStream.stream
+        .map((dartNostrEvent) {
+          debugPrint('📥 Received result event: ${dartNostrEvent.id}');
+          return dartNostrEvent;
+        })
+        .where((dartNostrEvent) {
+          // Filter for valid result events
+          final hasContent = dartNostrEvent.content?.isNotEmpty ?? false;
+          final hasElectionTag = dartNostrEvent.tags?.any((tag) =>
+              tag.length >= 2 && tag[0] == 'e' && tag[1] == electionId) ?? false;
+          final hasResultTag = dartNostrEvent.tags?.any((tag) =>
+              tag.length >= 2 && tag[0] == 't' && tag[1] == 'election_results') ?? false;
+          
+          debugPrint('🔍 Filtering result: content=$hasContent, election=$hasElectionTag, result=$hasResultTag');
+          return hasContent && hasElectionTag && hasResultTag;
+        })
+        .map((dartNostrEvent) {
+          debugPrint('✅ Processing valid result event: ${dartNostrEvent.id}');
+          return NostrEvent(
+            id: dartNostrEvent.id ?? '',
+            pubkey: dartNostrEvent.pubkey,
+            createdAt: (dartNostrEvent.createdAt?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch) ~/ 1000,
+            kind: dartNostrEvent.kind ?? 0,
+            tags: dartNostrEvent.tags?.map((tag) => tag.map((e) => e.toString()).toList()).toList() ?? [],
+            content: dartNostrEvent.content ?? '',
+            sig: dartNostrEvent.sig ?? '',
+          );
+        })
+        .handleError((error) {
+          debugPrint('🚨 Results stream error: $error');
+        })
+        .asBroadcastStream();
   }
 
   Stream<NostrEvent> subscribeToBlindSignatures() {
-    return Stream.fromIterable([]);
+    if (!_connected) {
+      throw Exception('Not connected to relay');
+    }
+
+    if (_currentKeyPair == null) {
+      throw Exception('No key pair available for subscription');
+    }
+
+    debugPrint('🔐 Subscribing to blind signatures for pubkey: ${_currentKeyPair!.public}');
+
+    // Create filter for NIP-59 Gift Wrap events directed to our public key
+    final filter = NostrFilter(
+      kinds: [1059], // NIP-59 Gift Wrap events
+      since: DateTime.now().subtract(const Duration(hours: 1)), // Only recent messages
+      p: [_currentKeyPair!.public], // Messages directed to our pubkey
+    );
+
+    debugPrint('📡 Starting blind signatures subscription...');
+
+    final request = NostrRequest(
+      filters: [filter],
+    );
+
+    final nostrStream = _nostr.services.relays.startEventsSubscription(
+      request: request,
+    );
+
+    return nostrStream.stream
+        .map((dartNostrEvent) {
+          debugPrint('📥 Received wrapped event: ${dartNostrEvent.id}');
+          return dartNostrEvent;
+        })
+        .where((dartNostrEvent) {
+          // Filter for valid wrapped events
+          final hasContent = dartNostrEvent.content?.isNotEmpty ?? false;
+          final hasPubkeyTag = dartNostrEvent.tags?.any((tag) =>
+              tag.length >= 2 && tag[0] == 'p' && tag[1] == _currentKeyPair!.public) ?? false;
+          final isGiftWrap = dartNostrEvent.kind == 1059;
+          
+          debugPrint('🔍 Filtering wrapped: content=$hasContent, pubkey=$hasPubkeyTag, giftWrap=$isGiftWrap');
+          return hasContent && hasPubkeyTag && isGiftWrap;
+        })
+        .asyncMap((dartNostrEvent) async {
+          try {
+            debugPrint('🎁 Attempting to unwrap NIP-59 event: ${dartNostrEvent.id}');
+            
+            // Unwrap the NIP-59 Gift Wrap event using decryptNIP59Event
+            // Convert dart_nostr event to nip59 compatible format
+            final dartNostrEventForDecryption = dartNostrEvent;
+            
+            final decryptedEvent = await Nip59.decryptNIP59Event(
+              dartNostrEventForDecryption,
+              _currentKeyPair!.private,
+              isValidPrivateKey: _nostr.services.keys.isValidPrivateKey,
+            );
+            
+            final unwrappedPayload = decryptedEvent.content ?? '';
+            
+            debugPrint('📦 Successfully unwrapped payload: $unwrappedPayload');
+            
+            // Try to parse the payload as JSON to check if it's a blind signature response
+            try {
+              final payloadJson = jsonDecode(unwrappedPayload);
+              if (payloadJson is Map<String, dynamic> && 
+                  payloadJson.containsKey('blind_signature')) {
+                debugPrint('✅ Found blind signature in payload');
+                
+                // Return the original event but with the unwrapped content
+                return NostrEvent(
+                  id: dartNostrEvent.id ?? '',
+                  pubkey: dartNostrEvent.pubkey,
+                  createdAt: (dartNostrEvent.createdAt?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch) ~/ 1000,
+                  kind: dartNostrEvent.kind ?? 0,
+                  tags: dartNostrEvent.tags?.map((tag) => tag.map((e) => e.toString()).toList()).toList() ?? [],
+                  content: unwrappedPayload, // Use unwrapped content
+                  sig: dartNostrEvent.sig ?? '',
+                );
+              }
+            } catch (e) {
+              debugPrint('⚠️ Payload is not JSON or missing blind_signature: $e');
+            }
+            
+            return null; // Not a blind signature response
+          } catch (e) {
+            debugPrint('❌ Failed to unwrap NIP-59 event: $e');
+            return null;
+          }
+        })
+        .where((event) => event != null)
+        .cast<NostrEvent>()
+        .handleError((error) {
+          debugPrint('🚨 Blind signatures stream error: $error');
+        })
+        .asBroadcastStream();
   }
 
-  Future<Uint8List?> waitForBlindSignature() async {
-    await Future.delayed(const Duration(seconds: 2));
-    return Uint8List.fromList([1, 2, 3, 4]); // Mock signature
+  Future<Uint8List?> waitForBlindSignature({
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
+    if (!_connected) {
+      throw Exception('Not connected to relay');
+    }
+
+    if (_currentKeyPair == null) {
+      throw Exception('No key pair available for waiting');
+    }
+
+    debugPrint('⏳ Waiting for blind signature (timeout: ${timeout.inSeconds}s)...');
+
+    final completer = Completer<Uint8List?>();
+    StreamSubscription? subscription;
+
+    try {
+      // Subscribe to blind signatures and wait for the first valid response
+      subscription = subscribeToBlindSignatures().listen(
+        (event) {
+          try {
+            debugPrint('🎯 Processing potential blind signature event');
+            
+            // Parse the unwrapped content
+            final payloadJson = jsonDecode(event.content);
+            if (payloadJson is Map<String, dynamic> && 
+                payloadJson.containsKey('blind_signature')) {
+              
+              final blindSigBase64 = payloadJson['blind_signature'] as String;
+              final blindSignature = base64.decode(blindSigBase64);
+              
+              debugPrint('✅ Received blind signature: ${blindSignature.length} bytes');
+              
+              if (!completer.isCompleted) {
+                completer.complete(blindSignature);
+              }
+            } else {
+              debugPrint('⚠️ Event content is not a valid blind signature response');
+            }
+          } catch (e) {
+            debugPrint('❌ Error processing blind signature event: $e');
+            if (!completer.isCompleted) {
+              completer.completeError('Failed to process blind signature: $e');
+            }
+          }
+        },
+        onError: (error) {
+          debugPrint('🚨 Blind signature subscription error: $error');
+          if (!completer.isCompleted) {
+            completer.completeError('Subscription error: $error');
+          }
+        },
+      );
+
+      // Set up timeout
+      Timer(timeout, () {
+        if (!completer.isCompleted) {
+          debugPrint('⏰ Timeout waiting for blind signature');
+          completer.complete(null);
+        }
+      });
+
+      return await completer.future;
+    } finally {
+      await subscription?.cancel();
+      debugPrint('🔚 Blind signature wait completed');
+    }
   }
 }
 
