@@ -27,7 +27,7 @@ void main() {
     // Verify the gift wrap event structure
     expect(giftWrapEvent.kind, equals(1059)); // Gift wrap kind
     expect(giftWrapEvent.pubkey.length, equals(64)); // Valid pubkey length
-    expect(giftWrapEvent.sig.length, equals(128)); // Valid signature length
+    expect(giftWrapEvent.sig?.length ?? 0, equals(128)); // Valid signature length
     expect(giftWrapEvent.content?.isNotEmpty ?? false, isTrue); // Has encrypted content
 
     // Additional verification: check that the gift wrap was created for the correct recipient

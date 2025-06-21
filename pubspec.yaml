@@ -61,6 +61,9 @@ dependencies:
   # Mnemonic generation and BIP39
   bip39: ^1.0.6
   
+  # Bech32 encoding for NIP-19
+  bech32: ^0.2.2
+  
   # Secure storage
   hive: ^2.2.3
   hive_flutter: ^1.1.0

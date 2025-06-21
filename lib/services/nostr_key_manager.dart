@@ -3,7 +3,7 @@ import 'package:crypto/crypto.dart';
 import 'package:elliptic/elliptic.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:dart_nostr/dart_nostr.dart';
+import 'package:bech32/bech32.dart';
 import 'secure_storage_service.dart';
 import 'dart:math';
 
@@ -13,8 +13,6 @@ class NostrKeyManager {
   static const String _mnemonicKey = 'nostr_mnemonic';
   static const String _firstLaunchKey = 'first_launch_completed';
   static const String _derivationPath = "m/44'/1237'/1989'/0/0";
-
-  static const _secureStorage = FlutterSecureStorage();
 
   /// Check if this is the first launch of the app
   static Future<bool> isFirstLaunch() async {
@@ -33,15 +31,15 @@ class NostrKeyManager {
     // Generate 12-word mnemonic (128 bits of entropy)
     final mnemonic = bip39.generateMnemonic();
 
-    // Store mnemonic securely
-    await _secureStorage.write(key: _mnemonicKey, value: mnemonic);
+    // Store mnemonic securely using our secure storage service
+    await SecureStorageService.write(key: _mnemonicKey, value: mnemonic);
 
     return mnemonic;
   }
 
   /// Retrieve stored mnemonic seed phrase
   static Future<String?> getStoredMnemonic() async {
-    return await _secureStorage.read(key: _mnemonicKey);
+    return await SecureStorageService.read(key: _mnemonicKey);
   }
 
   /// Validate if a mnemonic is valid according to BIP39
@@ -112,21 +110,47 @@ class NostrKeyManager {
     return Uint8List.fromList(bytes);
   }
 
-  /// Convert public key to npub format
+  /// Convert public key to npub format using NIP-19 bech32 encoding
   static String publicKeyToNpub(Uint8List publicKey) {
     if (publicKey.length != 32) {
       throw ArgumentError('Public key must be 32 bytes');
     }
 
-    // Convert Uint8List to hex string
-    final hexPublicKey = publicKey
-        .map((b) => b.toRadixString(16).padLeft(2, '0'))
-        .join('');
+    try {
+      // Convert the 32-byte public key to 5-bit groups for bech32 encoding
+      final fiveBitData = _convertTo5BitGroups(publicKey);
+      
+      // Encode using bech32 with 'npub' prefix (NIP-19 specification)
+      final bech32Result = bech32.encode(Bech32('npub', fiveBitData));
+      
+      return bech32Result;
+    } catch (e) {
+      throw Exception('Failed to encode public key to npub format: $e');
+    }
+  }
 
-    // For now, use a simple approach - just return hex with npub prefix
-    // This maintains functionality while avoiding dart_nostr API issues
-    // TODO: Implement proper bech32 encoding or find correct dart_nostr method
-    return 'npub1$hexPublicKey';
+  /// Convert 8-bit bytes to 5-bit groups for bech32 encoding
+  static List<int> _convertTo5BitGroups(Uint8List data) {
+    final result = <int>[];
+    int accumulator = 0;
+    int bits = 0;
+    
+    for (final byte in data) {
+      accumulator = (accumulator << 8) | byte;
+      bits += 8;
+      
+      while (bits >= 5) {
+        result.add((accumulator >> (bits - 5)) & 31);
+        bits -= 5;
+      }
+    }
+    
+    // Add padding if needed
+    if (bits > 0) {
+      result.add((accumulator << (5 - bits)) & 31);
+    }
+    
+    return result;
   }
 
   /// Generate a simple test key pair for debugging
@@ -235,12 +259,12 @@ class NostrKeyManager {
     }
 
     // Store the validated mnemonic securely
-    await _secureStorage.write(key: _mnemonicKey, value: mnemonic.trim());
+    await SecureStorageService.write(key: _mnemonicKey, value: mnemonic.trim());
   }
 
   /// Clear all stored keys (for testing or reset purposes)
   static Future<void> clearAllKeys() async {
-    await _secureStorage.delete(key: _mnemonicKey);
+    await SecureStorageService.delete(key: _mnemonicKey);
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_firstLaunchKey);
   }
