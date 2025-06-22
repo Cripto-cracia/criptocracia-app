@@ -1,7 +1,6 @@
 import 'package:bip39/bip39.dart' as bip39;
 import 'package:elliptic/elliptic.dart';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bech32/bech32.dart';
 import 'package:blockchain_utils/bip/bip/bip32/bip32.dart';
 import 'secure_storage_service.dart';
@@ -11,19 +10,12 @@ import 'dart:math';
 /// Generates mnemonic seed phrases and derives keys using m/44'/1237'/1989'/0/0 path
 class NostrKeyManager {
   static const String _mnemonicKey = 'nostr_mnemonic';
-  static const String _firstLaunchKey = 'first_launch_completed';
   static const String _derivationPath = "m/44'/1237'/1989'/0/0";
 
-  /// Check if this is the first launch of the app
-  static Future<bool> isFirstLaunch() async {
-    final prefs = await SharedPreferences.getInstance();
-    return !(prefs.getBool(_firstLaunchKey) ?? false);
-  }
-
-  /// Mark first launch as completed
-  static Future<void> markFirstLaunchCompleted() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_firstLaunchKey, true);
+  /// Check if a mnemonic already exists (indicating not first launch)
+  static Future<bool> hasMnemonic() async {
+    final mnemonic = await SecureStorageService.read(key: _mnemonicKey);
+    return mnemonic != null && mnemonic.isNotEmpty;
   }
 
   /// Generate a new mnemonic seed phrase and store it securely
@@ -248,9 +240,10 @@ class NostrKeyManager {
 
   /// Initialize keys on first app launch
   static Future<void> initializeKeysIfNeeded() async {
-    if (await isFirstLaunch()) {
+    // Check if we already have a mnemonic stored
+    if (!(await hasMnemonic())) {
+      // First launch - generate new mnemonic
       await generateAndStoreMnemonic();
-      await markFirstLaunchCompleted();
 
       // Validate the generated keys
       final keys = await getDerivedKeys();
@@ -262,6 +255,26 @@ class NostrKeyManager {
         debugPrint('🌐 npub: ${keys['npub']}');
         return true;
       }());
+    } else {
+      // Existing mnemonic found - validate it's still accessible
+      assert(() {
+        debugPrint('🔑 Existing mnemonic found, verifying accessibility');
+        return true;
+      }());
+      
+      try {
+        final keys = await getDerivedKeys();
+        assert(() {
+          debugPrint('✅ Existing mnemonic validated successfully');
+          debugPrint('🌐 npub: ${keys['npub']}');
+          return true;
+        }());
+      } catch (e) {
+        debugPrint('❌ Error validating existing mnemonic: $e');
+        // If existing mnemonic is corrupted, generate a new one
+        await generateAndStoreMnemonic();
+        debugPrint('🔄 Generated new mnemonic to replace corrupted one');
+      }
     }
   }
 
@@ -279,7 +292,5 @@ class NostrKeyManager {
   /// Clear all stored keys (for testing or reset purposes)
   static Future<void> clearAllKeys() async {
     await SecureStorageService.delete(key: _mnemonicKey);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_firstLaunchKey);
   }
 }
