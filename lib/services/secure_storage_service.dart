@@ -43,22 +43,18 @@ class SecureStorageService {
     // Generate device fingerprint for key validation
     final currentFingerprint = await _generateDeviceFingerprint();
 
-    // Try to get stored key and fingerprint from secure storage
-    // Note: We use a bootstrap key derived from device fingerprint for this initial storage
-    final bootstrapKey = await _deriveBootstrapKey(currentFingerprint);
-    
+    // Try to get stored master key from platform-secure storage
     String? storedKey;
     String? storedFingerprint;
     
     try {
-      // Try to retrieve from secure storage using bootstrap key
-      final tempBox = await _openSecureBox('bootstrap', bootstrapKey);
-      storedKey = tempBox.get(_masterKeyStorageKey);
-      storedFingerprint = tempBox.get(_deviceFingerprintKey);
-      await tempBox.close();
+      // Use platform-specific secure storage (Keychain/Keystore) for master key
+      final secureStorage = const FlutterSecureStorage();
+      storedKey = await secureStorage.read(key: _masterKeyStorageKey);
+      storedFingerprint = await secureStorage.read(key: _deviceFingerprintKey);
     } catch (e) {
-      // If bootstrap storage fails, this might be first run or corruption
-      debugPrint('Bootstrap storage access failed: $e');
+      // Platform secure storage might not be available or initialized
+      // Continue with key generation
     }
 
     // If we have a stored key and device fingerprint matches, derive key from it
@@ -69,12 +65,11 @@ class SecureStorageService {
     // Generate new master key and store it securely
     final newMasterKey = await _generateSecureMasterKey();
     
-    // Store both master key and fingerprint in secure storage
+    // Store both master key and fingerprint in platform-secure storage
     try {
-      final tempBox = await _openSecureBox('bootstrap', bootstrapKey);
-      await tempBox.put(_masterKeyStorageKey, newMasterKey);
-      await tempBox.put(_deviceFingerprintKey, currentFingerprint);
-      await tempBox.close();
+      final secureStorage = const FlutterSecureStorage();
+      await secureStorage.write(key: _masterKeyStorageKey, value: newMasterKey);
+      await secureStorage.write(key: _deviceFingerprintKey, value: currentFingerprint);
     } catch (e) {
       throw Exception('Failed to store master key securely: $e');
     }
@@ -204,27 +199,6 @@ class SecureStorageService {
     return derivedKey;
   }
 
-  /// Derive a bootstrap key for storing master key and device fingerprint
-  /// This creates a circular dependency resolution by using device fingerprint as seed
-  static Future<Uint8List> _deriveBootstrapKey(String deviceFingerprint) async {
-    // Use a simplified key derivation for bootstrap purposes
-    const bootstrapSalt = 'criptocracia_bootstrap_v1';
-    final combinedSeed = '$bootstrapSalt|$deviceFingerprint';
-    final seedBytes = utf8.encode(combinedSeed);
-    
-    // Use simpler PBKDF2 with fewer iterations for bootstrap key
-    return await _pbkdf2(seedBytes, utf8.encode(bootstrapSalt), 10000, 32);
-  }
-
-  /// Helper method to open a secure Hive box with encryption
-  static Future<Box<String>> _openSecureBox(String boxName, Uint8List encryptionKey) async {
-    await Hive.initFlutter();
-    
-    return await Hive.openBox<String>(
-      boxName,
-      encryptionCipher: HiveAesCipher(encryptionKey),
-    );
-  }
 
   /// PBKDF2 key derivation function
   static Future<Uint8List> _pbkdf2(
