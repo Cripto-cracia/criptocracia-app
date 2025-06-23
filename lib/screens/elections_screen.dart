@@ -158,7 +158,8 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
       final hashed = CryptoService.hashNonce(nonce);
       final result = CryptoService.blindNonce(hashed, ecPk);
 
-      await VoterSessionService.saveSession(nonce, result);
+      // Save complete session state including election ID and hash bytes (matching Rust app variable)
+      await VoterSessionService.saveSession(nonce, result, hashed, election.id);
 
       // Use the shared NostrService instance to avoid concurrent connection issues
       final nostr = NostrService.instance;
