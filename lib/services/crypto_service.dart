@@ -1,7 +1,7 @@
-import 'dart:typed_data';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:blind_rsa_signatures/blind_rsa_signatures.dart';
+import 'package:flutter/foundation.dart';
 
 class CryptoService {
   static Uint8List generateNonce() {
@@ -28,23 +28,118 @@ class CryptoService {
     return ecPublicKey.blind(null, hashedNonce, false, options);
   }
 
-  static Uint8List unblindSignature(
+  /// Unblind a signature using the blinding result components
+  static Signature unblindSignature(
     Uint8List blindSignature,
-    BigInt blindingFactor,
+    Uint8List secret,
+    Uint8List messageRandomizer,
+    Uint8List originalHashedMessage,
     PublicKey ecPublicKey,
   ) {
-    // TODO: Implement RSA unblinding
-    // This is a placeholder - actual implementation would use RSA unblinding
-    throw UnimplementedError('RSA unblinding not yet implemented');
+    try {
+      debugPrint('🔓 Unblinding signature');
+      
+      // Use the blind_rsa_signatures library to finalize the signature
+      final signature = ecPublicKey.finalize(
+        blindSignature,
+        secret,
+        messageRandomizer,
+        originalHashedMessage,
+        Options.defaultOptions,
+      );
+      
+      debugPrint('✅ Signature unblinded successfully');
+      return signature;
+    } catch (e) {
+      debugPrint('❌ Failed to unblind signature: $e');
+      rethrow;
+    }
   }
 
+  /// Verify an RSA signature against a message
   static bool verifySignature(
-    Uint8List signature,
+    Signature signature,
+    Uint8List messageRandomizer,
     Uint8List message,
     PublicKey ecPublicKey,
   ) {
-    // TODO: Implement RSA signature verification
-    // This is a placeholder - actual implementation would verify RSA signature
-    throw UnimplementedError('RSA signature verification not yet implemented');
+    try {
+      debugPrint('🔍 Verifying signature against message');
+      debugPrint('   Message length: ${message.length} bytes');
+      
+      // Use the blind_rsa_signatures library to verify
+      final isValid = signature.verify(
+        ecPublicKey,
+        messageRandomizer,
+        message,
+        Options.defaultOptions,
+      );
+      
+      debugPrint(isValid ? '✅ Signature verification successful' : '❌ Signature verification failed');
+      return isValid;
+    } catch (e) {
+      debugPrint('❌ Signature verification error: $e');
+      return false;
+    }
+  }
+
+  /// Verify a vote token (unblinded signature) against the original nonce
+  static bool verifyVoteToken(
+    Signature unblindedSignature,
+    Uint8List messageRandomizer,
+    Uint8List originalNonce,
+    PublicKey ecPublicKey,
+  ) {
+    // Hash the original nonce (as done during blinding)
+    final hashedNonce = hashNonce(originalNonce);
+    
+    // Verify the unblinded signature against the hashed nonce
+    return verifySignature(unblindedSignature, messageRandomizer, hashedNonce, ecPublicKey);
+  }
+
+  /// Generate a secure vote token by processing the complete blind signature flow
+  static Map<String, dynamic> processBlindSignatureResponse(
+    Uint8List blindSignatureFromEC,
+    Uint8List originalNonce,
+    Uint8List secret,
+    Uint8List messageRandomizer,
+    PublicKey ecPublicKey,
+  ) {
+    try {
+      // Hash the original nonce (as done during blinding)
+      final hashedNonce = hashNonce(originalNonce);
+      
+      // Unblind the signature received from the Election Coordinator
+      final unblindedSignature = unblindSignature(
+        blindSignatureFromEC,
+        secret,
+        messageRandomizer,
+        hashedNonce,
+        ecPublicKey,
+      );
+      
+      // Verify the unblinded signature is valid
+      final isValid = verifyVoteToken(
+        unblindedSignature,
+        messageRandomizer,
+        originalNonce,
+        ecPublicKey,
+      );
+      
+      if (!isValid) {
+        throw Exception('Vote token verification failed - signature is invalid');
+      }
+      
+      debugPrint('🎫 Vote token generated and verified successfully');
+      
+      return {
+        'voteToken': unblindedSignature,
+        'originalNonce': originalNonce,
+        'verified': isValid,
+      };
+    } catch (e) {
+      debugPrint('❌ Failed to process blind signature response: $e');
+      rethrow;
+    }
   }
 }
