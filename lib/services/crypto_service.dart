@@ -24,8 +24,43 @@ class CryptoService {
     Uint8List hashedNonce,
     PublicKey ecPublicKey,
   ) {
-    const options = Options.defaultOptions;
-    return ecPublicKey.blind(null, hashedNonce, false, options);
+    try {
+      debugPrint('🔒 Blinding nonce with EC public key');
+      debugPrint('   Hashed nonce length: ${hashedNonce.length} bytes');
+
+      const options = Options.defaultOptions;
+      final result = ecPublicKey.blind(null, hashedNonce, true, options);
+
+      debugPrint('✅ Nonce blinded successfully');
+      debugPrint(
+        '   Blinded message length: ${result.blindMessage.length} bytes',
+      );
+      debugPrint('   Secret length: ${result.secret.length} bytes');
+      debugPrint(
+        '   MessageRandomizer: ${result.messageRandomizer?.length ?? 'NULL'}',
+      );
+
+      // CRITICAL: Check if messageRandomizer is actually available
+      if (result.messageRandomizer == null) {
+        debugPrint('🚨 WARNING: BlindingResult.messageRandomizer is NULL!');
+        debugPrint(
+          '🚨 This indicates the blind_rsa_signatures library is not storing the randomizer',
+        );
+        debugPrint('🚨 This will cause vote verification to fail');
+        debugPrint(
+          '🚨 API call was: ecPublicKey.blind(null, hashedNonce, true, options)',
+        );
+      } else {
+        debugPrint(
+          '✅ MessageRandomizer available: ${result.messageRandomizer!.length} bytes',
+        );
+      }
+
+      return result;
+    } catch (e) {
+      debugPrint('❌ Failed to blind nonce: $e');
+      rethrow;
+    }
   }
 
   /// Unblind a signature using the blinding result components
@@ -38,7 +73,7 @@ class CryptoService {
   ) {
     try {
       debugPrint('🔓 Unblinding signature');
-      
+
       // Use the blind_rsa_signatures library to finalize the signature
       final signature = ecPublicKey.finalize(
         blindSignature,
@@ -47,7 +82,7 @@ class CryptoService {
         originalHashedMessage,
         Options.defaultOptions,
       );
-      
+
       debugPrint('✅ Signature unblinded successfully');
       return signature;
     } catch (e) {
@@ -66,7 +101,7 @@ class CryptoService {
     try {
       debugPrint('🔍 Verifying signature against message');
       debugPrint('   Message length: ${message.length} bytes');
-      
+
       // Use the blind_rsa_signatures library to verify
       final isValid = signature.verify(
         ecPublicKey,
@@ -74,8 +109,12 @@ class CryptoService {
         message,
         Options.defaultOptions,
       );
-      
-      debugPrint(isValid ? '✅ Signature verification successful' : '❌ Signature verification failed');
+
+      debugPrint(
+        isValid
+            ? '✅ Signature verification successful'
+            : '❌ Signature verification failed',
+      );
       return isValid;
     } catch (e) {
       debugPrint('❌ Signature verification error: $e');
@@ -92,9 +131,14 @@ class CryptoService {
   ) {
     // Hash the original nonce (as done during blinding)
     final hashedNonce = hashNonce(originalNonce);
-    
+
     // Verify the unblinded signature against the hashed nonce
-    return verifySignature(unblindedSignature, messageRandomizer, hashedNonce, ecPublicKey);
+    return verifySignature(
+      unblindedSignature,
+      messageRandomizer,
+      hashedNonce,
+      ecPublicKey,
+    );
   }
 
   /// Generate a secure vote token by processing the complete blind signature flow
@@ -108,7 +152,7 @@ class CryptoService {
     try {
       // Hash the original nonce (as done during blinding)
       final hashedNonce = hashNonce(originalNonce);
-      
+
       // Unblind the signature received from the Election Coordinator
       final unblindedSignature = unblindSignature(
         blindSignatureFromEC,
@@ -117,7 +161,7 @@ class CryptoService {
         hashedNonce,
         ecPublicKey,
       );
-      
+
       // Verify the unblinded signature is valid
       final isValid = verifyVoteToken(
         unblindedSignature,
@@ -125,13 +169,15 @@ class CryptoService {
         originalNonce,
         ecPublicKey,
       );
-      
+
       if (!isValid) {
-        throw Exception('Vote token verification failed - signature is invalid');
+        throw Exception(
+          'Vote token verification failed - signature is invalid',
+        );
       }
-      
+
       debugPrint('🎫 Vote token generated and verified successfully');
-      
+
       return {
         'voteToken': unblindedSignature,
         'originalNonce': originalNonce,

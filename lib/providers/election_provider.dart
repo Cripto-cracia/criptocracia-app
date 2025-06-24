@@ -83,12 +83,22 @@ class ElectionProvider with ChangeNotifier {
                 (e) => e.id == election.id,
               );
               if (existingIndex != -1) {
+                // Check for status changes before updating
+                final oldElection = _elections[existingIndex];
+                final statusChanged = oldElection.status != election.status;
+                
                 // Update existing election (status change, candidate updates, etc.)
                 _elections = [..._elections];
                 _elections[existingIndex] = election;
                 debugPrint(
                   '🔄 Updated existing election: ${election.name} - Status: ${election.status}',
                 );
+                
+                if (statusChanged) {
+                  debugPrint('🚨 ELECTION STATUS CHANGED: ${election.id}');
+                  debugPrint('   From: ${oldElection.status}');
+                  debugPrint('   To: ${election.status}');
+                }
 
                 // Update selected election if this election is currently selected
                 _updateSelectedElectionIfMatches(election);
@@ -200,13 +210,24 @@ class ElectionProvider with ChangeNotifier {
               final content = jsonDecode(event.content);
               final election = Election.fromJson(content);
               
-              // Check if this is a new election we haven't seen
+              // Check if this is a new election or an update to existing one
               final existingIndex = _elections.indexWhere((e) => e.id == election.id);
               if (existingIndex == -1) {
                 debugPrint('🆕 Found new election during refresh: ${election.name}');
                 _elections = [..._elections, election];
                 _sortElections();
                 notifyListeners();
+              } else {
+                // Check if existing election has been updated
+                final oldElection = _elections[existingIndex];
+                if (oldElection.status != election.status) {
+                  debugPrint('🔄 Found election status update during refresh: ${election.name}');
+                  debugPrint('   Status changed from ${oldElection.status} to ${election.status}');
+                  _elections = [..._elections];
+                  _elections[existingIndex] = election;
+                  _updateSelectedElectionIfMatches(election);
+                  notifyListeners();
+                }
               }
             } catch (e) {
               debugPrint('❌ Error parsing election during refresh: $e');

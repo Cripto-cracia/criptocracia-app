@@ -71,17 +71,8 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
       
       if (success && message.isTokenMessage) {
         debugPrint('✅ Blind signature processed successfully for election: ${message.id}');
-        
-        // Show success message to user
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('✅ Vote token received for election ${message.id}'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
+        // Note: Success notification will be shown in election detail screen
+        // to avoid duplicate notifications and provide better UX context
       }
     } catch (e) {
       debugPrint('❌ Error handling incoming message: $e');
@@ -215,6 +206,15 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
       final nonce = CryptoService.generateNonce();
       final hashed = CryptoService.hashNonce(nonce);
       final result = CryptoService.blindNonce(hashed, ecPk);
+
+      // DEBUG: Check what's actually in the BlindingResult
+      debugPrint('🔍 BLINDING RESULT DEBUG:');
+      debugPrint('   blindMessage length: ${result.blindMessage.length}');
+      debugPrint('   secret length: ${result.secret.length}');
+      debugPrint('   messageRandomizer: ${result.messageRandomizer?.length ?? 'NULL'}');
+      if (result.messageRandomizer != null) {
+        debugPrint('   messageRandomizer first 10 bytes: ${result.messageRandomizer!.take(10).toList()}');
+      }
 
       // Save complete session state including election ID and hash bytes (matching Rust app variable)
       await VoterSessionService.saveSession(nonce, result, hashed, election.id, election.rsaPubKey);

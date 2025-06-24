@@ -422,6 +422,62 @@ class NostrService {
     }
   }
 
+  /// Send vote message via Gift Wrap with anonymous keys
+  /// Implements step 3 part 2 of the cryptographic protocol
+  Future<void> sendVoteMessage({
+    required String messageJson,
+    required String ecPubKey,
+    required String randomPrivKeyHex,
+    required String randomPubKeyHex,
+  }) async {
+    if (!_connected) {
+      throw Exception('Not connected to relay');
+    }
+
+    try {
+      debugPrint('🗳️ Sending vote message via Gift Wrap...');
+      debugPrint('   Message: $messageJson');
+      debugPrint('   EC pubkey: $ecPubKey');
+      debugPrint('   Using anonymous key: ${randomPubKeyHex.substring(0, 16)}...');
+
+      // Create NIP-59 gift wrap using anonymous keys
+      final giftWrapEvent = await Nip59.createNIP59Event(
+        messageJson,
+        ecPubKey,
+        randomPrivKeyHex,
+        generateKeyPairFromPrivateKey: _nostr.services.keys.generateKeyPairFromExistingPrivateKey,
+        generateKeyPair: _nostr.services.keys.generateKeyPair,
+        isValidPrivateKey: _nostr.services.keys.isValidPrivateKey,
+      );
+
+      debugPrint('📡 Broadcasting vote Gift Wrap event...');
+      debugPrint('🔍 Vote Gift Wrap event details:');
+      debugPrint('   ID: ${giftWrapEvent.id}');
+      debugPrint('   Kind: ${giftWrapEvent.kind}');
+      debugPrint('   PubKey: ${giftWrapEvent.pubkey}');
+      debugPrint('   Created: ${giftWrapEvent.createdAt}');
+
+      // Validate signature
+      final signature = giftWrapEvent.sig;
+      if (signature == null || signature.length != 128) {
+        throw Exception('Invalid Gift Wrap signature');
+      }
+
+      // Send the Gift Wrap event
+      _nostr.services.relays.sendEventToRelays(giftWrapEvent);
+
+      // Small delay to ensure broadcast completion
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      debugPrint('✅ Vote Gift Wrap sent successfully: ${giftWrapEvent.id}');
+      debugPrint('🔒 Vote sent anonymously - cannot be traced to voter identity');
+
+    } catch (e) {
+      debugPrint('❌ Error sending vote message: $e');
+      rethrow;
+    }
+  }
+
   Future<void> castVote(
     String electionId,
     int candidateId,

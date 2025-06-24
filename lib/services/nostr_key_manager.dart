@@ -293,4 +293,47 @@ class NostrKeyManager {
   static Future<void> clearAllKeys() async {
     await SecureStorageService.delete(key: _mnemonicKey);
   }
+
+  /// Generate a random key pair for anonymous voting
+  /// Creates completely new keys not derived from the user's mnemonic
+  /// Used for vote anonymization as per cryptographic protocol step 3
+  static Future<Map<String, String>> generateRandomKeyPair() async {
+    try {
+      debugPrint('🎲 Generating random key pair for anonymous voting...');
+      
+      final ec = getSecp256k1();
+      final random = Random.secure();
+      
+      // Generate random private key
+      BigInt privateKeyBigInt;
+      do {
+        final bytes = List<int>.generate(32, (_) => random.nextInt(256));
+        final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+        privateKeyBigInt = BigInt.parse(hex, radix: 16);
+      } while (privateKeyBigInt >= ec.n || privateKeyBigInt == BigInt.zero);
+
+      final privateKey = PrivateKey.fromHex(
+        ec,
+        privateKeyBigInt.toRadixString(16).padLeft(64, '0'),
+      );
+
+      final publicKey = privateKey.publicKey;
+
+      // Convert to hex strings
+      final privateKeyHex = privateKey.D.toRadixString(16).padLeft(64, '0');
+      final publicKeyHex = publicKey.X.toRadixString(16).padLeft(64, '0');
+      
+      debugPrint('✅ Random key pair generated for anonymous voting');
+      debugPrint('   Random public key: ${publicKeyHex.substring(0, 16)}...');
+      
+      return {
+        'privateKeyHex': privateKeyHex,
+        'publicKeyHex': publicKeyHex,
+      };
+      
+    } catch (e) {
+      debugPrint('❌ Error generating random key pair: $e');
+      rethrow;
+    }
+  }
 }
