@@ -1,5 +1,7 @@
 # Criptocracia - Flutter Voter App
 
+*Disclaimer: The author is NOT a cryptographer and this work has not been reviewed. This means that there is very likely a fatal flaw somewhere. Criptocracia is still experimental and not production-ready.*
+
 Criptocracia is an experimental, trustless open-source electronic voting system. This Flutter application serves as the voter client, implementing blind RSA signatures to ensure vote secrecy and voter anonymity, while using the Nostr protocol for decentralized, encrypted message transport.
 
 ## 🗳️ Project Overview
@@ -51,8 +53,8 @@ Voting Session → Blind Signatures → Vote Tokens → Anonymous Voting
 
 1. **Clone the repository**:
    ```bash
-   git clone <repository-url>
-   cd criptocracia_app
+   git clone https://github.com/grunch/criptocracia-app.git
+   cd criptocracia-app
    ```
 
 2. **Install dependencies**:
@@ -209,10 +211,7 @@ flutter clean                 # Clean build cache
 - **Election Coordinator**: `0000001ace57d0da17fc18562f4658ac6d093b2cc8bb7bd44853d0c196e24a9c`
 
 ### Custom Configuration
-Configuration can be customized via command line arguments:
-```bash
-flutter run -- --relay=wss://custom.relay.url --ec-pubkey=<coordinator-key>
-```
+Configuration can be customized changing `relayUrl` and `ecPublicKey` variables in `lib/config/app_config.dart`.
 
 ## 🔗 Dependencies
 
@@ -300,12 +299,14 @@ flutter doctor -v
 
 ## 📄 License
 
-This project is part of the Criptocracia open-source electronic voting system. Please refer to the main project repository for license information.
+This project is under [MIT License](./LICENSE).
 
 ## 🔗 Related Projects
 
-- **Criptocracia Core**: Rust-based election coordinator and backend services
-- **Criptocracia CLI**: Command-line voter client (reference implementation)
+- **Criptocracia EC**: Rust-based election coordinator.
+- **Criptocracia Voter**: Rust-based voter client.
+
+https://github.com/grunch/criptocracia
 
 ## 📞 Support
 
