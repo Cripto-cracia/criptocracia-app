@@ -150,7 +150,7 @@ void main() {
       print('   h_n (Base64): ${hNBase64.substring(0, 20)}...');
       print('   token (Base64): ${tokenBase64.substring(0, 20)}...');
       print(
-        '   r (Base64): ${rBase64.length > 0 ? rBase64.substring(0, 20) : 'EMPTY'}...',
+        '   r (Base64): ${rBase64.isNotEmpty ? rBase64.substring(0, 20) : 'EMPTY'}...',
       );
       print('   candidate_id: $candidateId');
       print('   Total payload length: ${votePayload.length} chars');
