@@ -438,12 +438,16 @@ class NostrService {
       throw Exception('Not connected to relay');
     }
 
-    // Calculate DateTime for 24 hours ago
-    final since = DateTime.now().subtract(const Duration(hours: 24));
-    debugPrint('📅 Looking for kind 35000 events since: $since');
+    // Create request filter for kind 35000 events (elections)
+    // Note: No 'since' parameter to ensure real-time updates for new elections
+    final filter = NostrFilter(
+      kinds: [35000], // Election events
+      limit: 50, // Limit historical events but allow real-time updates
+    );
 
-    // Create request filter for kind 35000 events from last 24 hours
-    final filter = NostrFilter(kinds: [35000], since: since);
+    debugPrint(
+      '📅 Subscribing to kind 35000 events (elections) for real-time updates',
+    );
 
     debugPrint('📡 Starting subscription for kind 35000 events...');
 
