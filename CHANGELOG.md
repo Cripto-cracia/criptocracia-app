@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Comprehensive Real-time Election Updates**: Multi-layered approach with periodic refresh backup
+- **Automatic Periodic Refresh**: Background timer checks for missed elections every 30 seconds
+- **Enhanced Event Logging**: Detailed logging for election event reception and processing
+- **Election List Sorting**: Elections now display with most recent first (sorted by start time)
 - **NIP-59 Compliant Gift Wrap Filtering**: Fixed timestamp filtering to comply with NIP-59 specification
 - **Rumor Timestamp Validation**: Added canonical timestamp validation after Gift Wrap decryption
 - **Complete Voting Session Management**: Implemented comprehensive session state management matching Rust client functionality
@@ -51,8 +55,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Encrypted Hive Storage**: AES encryption with device-fingerprint-derived keys
 
 ### Fixed
-- **Real-time Election Updates**: Fixed elections list not updating when new elections are created by EC
-- **Election Subscription Filtering**: Removed time-based filtering that prevented real-time event reception
+- **Real-time Election Updates**: Comprehensive solution with unlimited filtering and periodic backup refresh
+- **Election Subscription Reliability**: Removed all filtering limits to maximize event reception
+- **Missing Election Events**: Added periodic refresh mechanism to catch any missed real-time events
 - **Gift Wrap Signature Validation**: Fixed NoSuchMethodError by removing invalid isSignatureValid() call
 - **NIP-59 Gift Wrap Filtering**: Removed time-based filtering that was incompatible with timestamp randomization
 - **Gift Wrap Timestamp Handling**: Now uses canonical rumor timestamps instead of randomized wrapper timestamps

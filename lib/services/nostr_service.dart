@@ -439,14 +439,13 @@ class NostrService {
     }
 
     // Create request filter for kind 35000 events (elections)
-    // Note: No 'since' parameter to ensure real-time updates for new elections
+    // Note: No 'since' or 'limit' parameters to ensure maximum real-time event reception
     final filter = NostrFilter(
-      kinds: [35000], // Election events
-      limit: 50, // Limit historical events but allow real-time updates
+      kinds: [35000], // Election events only
     );
 
     debugPrint(
-      '📅 Subscribing to kind 35000 events (elections) for real-time updates',
+      '📅 Subscribing to ALL kind 35000 events for maximum real-time coverage',
     );
 
     debugPrint('📡 Starting subscription for kind 35000 events...');
@@ -465,8 +464,11 @@ class NostrService {
     return nostrStream.stream
         .map((dartNostrEvent) {
           debugPrint(
-            '📥 Received event: kind=${dartNostrEvent.kind}, id=${dartNostrEvent.id}',
+            '📥 Received event: kind=${dartNostrEvent.kind}, id=${dartNostrEvent.id}, timestamp=${dartNostrEvent.createdAt}',
           );
+          if (dartNostrEvent.kind == 35000) {
+            debugPrint('🗳️ Election event received in real-time!');
+          }
           return dartNostrEvent;
         })
         .where((dartNostrEvent) {
