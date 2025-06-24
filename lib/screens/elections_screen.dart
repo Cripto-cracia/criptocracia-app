@@ -9,7 +9,10 @@ import '../services/nostr_service.dart';
 import '../services/nostr_key_manager.dart';
 import '../services/crypto_service.dart';
 import '../services/voter_session_service.dart';
+import '../services/blind_signature_processor.dart';
+import '../models/message.dart';
 import '../config/app_config.dart';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:blind_rsa_signatures/blind_rsa_signatures.dart';
@@ -22,12 +25,67 @@ class ElectionsScreen extends StatefulWidget {
 }
 
 class _ElectionsScreenState extends State<ElectionsScreen> {
+  StreamSubscription? _messageSubscription;
+  StreamSubscription? _errorSubscription;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ElectionProvider>().loadElections();
+      _setupMessageListeners();
     });
+  }
+
+  @override
+  void dispose() {
+    _messageSubscription?.cancel();
+    _errorSubscription?.cancel();
+    super.dispose();
+  }
+
+  /// Setup listeners for incoming Gift Wrap messages
+  void _setupMessageListeners() {
+    final nostr = NostrService.instance;
+    
+    // Listen for incoming messages
+    _messageSubscription = nostr.messageStream.listen((message) {
+      debugPrint('📨 Received message in ElectionsScreen: $message');
+      _handleIncomingMessage(message);
+    });
+
+    // Listen for errors
+    _errorSubscription = nostr.errorStream.listen((error) {
+      debugPrint('❌ NostrService error: $error');
+      // Could show user-friendly error message here
+    });
+  }
+
+  /// Handle incoming messages from Gift Wrap events
+  Future<void> _handleIncomingMessage(Message message) async {
+    try {
+      debugPrint('🔄 Processing message in ElectionsScreen: $message');
+      
+      final processor = BlindSignatureProcessor.instance;
+      final success = await processor.processMessage(message);
+      
+      if (success && message.isTokenMessage) {
+        debugPrint('✅ Blind signature processed successfully for election: ${message.id}');
+        
+        // Show success message to user
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ Vote token received for election ${message.id}'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Error handling incoming message: $e');
+    }
   }
 
   @override
@@ -159,10 +217,16 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
       final result = CryptoService.blindNonce(hashed, ecPk);
 
       // Save complete session state including election ID and hash bytes (matching Rust app variable)
-      await VoterSessionService.saveSession(nonce, result, hashed, election.id);
+      await VoterSessionService.saveSession(nonce, result, hashed, election.id, election.rsaPubKey);
 
       // Use the shared NostrService instance to avoid concurrent connection issues
       final nostr = NostrService.instance;
+      
+      // Start listening for Gift Wrap responses before sending the request
+      debugPrint('🎁 Starting Gift Wrap listener for voter responses...');
+      await nostr.startGiftWrapListener(voterPubHex, voterPrivHex);
+      
+      // Send the blind signature request
       await nostr.sendBlindSignatureRequestSafe(
         ecPubKey: AppConfig.ecPublicKey,
         electionId: election.id,
@@ -170,6 +234,8 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
         voterPrivKeyHex: voterPrivHex,
         voterPubKeyHex: voterPubHex,
       );
+      
+      debugPrint('✅ Blind signature request sent, listening for response...');
     } catch (e) {
       debugPrint('❌ Error requesting blind signature: $e');
     }

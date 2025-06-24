@@ -107,6 +107,13 @@ Criptocracia is an experimental, trustless open-source electronic voting system 
 - ✅ Maintained API compatibility during migration
 - ✅ Added secure key pair management for message encryption
 
+**Recent NIP-59 Improvements**:
+- ✅ Fixed Gift Wrap timestamp filtering to comply with NIP-59 specification
+- ✅ Removed time-based filtering incompatible with timestamp randomization
+- ✅ Added canonical rumor timestamp validation after decryption
+- ✅ Fixed signature validation method compatibility with dart_nostr library
+- ✅ Enhanced Gift Wrap event processing with proper error handling
+
 ### 6. Application State (`lib/models/` and `lib/providers/`)
 
 **Purpose**: Application-wide state management using Provider pattern
@@ -137,10 +144,24 @@ User Taps Election → Generate Nonce → Hash Nonce → Blind Hash
 ### 3. Voting Process Flow
 ```
 Blind Signature Request → Election Coordinator → Blind Signature Response
+├── Receive via NIP-59 Gift Wrap Event
+├── Decrypt Rumor → Validate Canonical Timestamp
+├── Parse Message JSON → Process Blind Signature
 ├── Store Response: (blindSignature, messageRandomizer)
 ├── Unblind Signature → Verify Vote Token
 ├── Cast Vote with Verified Token
 └── Display Results
+```
+
+### 4. Gift Wrap Message Processing Flow
+```
+Gift Wrap Event (kind 1059) → NostrService.startGiftWrapListener()
+├── Filter by recipient pubkey (no time filtering due to NIP-59 randomization)
+├── Decrypt NIP-59 rumor → Extract canonical timestamp
+├── Validate rumor age (< 24h) → Parse Message JSON
+├── Route to BlindSignatureProcessor → Process blind signature response
+├── Unblind signature → Verify vote token → Store session data
+└── Emit success notification to UI
 ```
 
 ## Cryptographic Flow
@@ -266,11 +287,13 @@ Hardware Security Features
 - ✅ Secure key management with industry standards
 - ✅ NIP-06 compliant Nostr key derivation
 - ✅ Hardware-backed encrypted storage with mnemonic persistence
-- ✅ NIP-59 encrypted communication
+- ✅ NIP-59 encrypted communication with proper timestamp handling
 - ✅ Complete blind signature voting workflow
 - ✅ Comprehensive session state management
 - ✅ RSA cryptographic operations implementation
 - ✅ Election selection and voting flow
+- ✅ Gift Wrap event processing with blind signature response handling
+- ✅ Real-time message streams for voting protocol communication
 
 ## Testing Strategy
 
