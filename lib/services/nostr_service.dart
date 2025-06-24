@@ -158,6 +158,9 @@ class NostrService {
         kinds: [1059], // NIP-59 Gift Wrap events
         p: [voterPubKeyHex], // Events tagged to this voter's pubkey
         limit: 100, // Limit to prevent excessive historical events
+        since: DateTime.now().subtract(
+          const Duration(days: 2),
+        ), // gift wraps events have time tweaked
       );
 
       final request = NostrRequest(filters: [filter]);
@@ -195,10 +198,12 @@ class NostrService {
   ) async {
     try {
       debugPrint('📡 Received Gift Wrap event: ${dartNostrEvent.id}');
-      
+
       // Events received from relays are already signature-validated by the relay
       // and dart_nostr library, so we can proceed directly to decryption
-      debugPrint('🔍 Processing Gift Wrap event (signature validated by relay)');
+      debugPrint(
+        '🔍 Processing Gift Wrap event (signature validated by relay)',
+      );
 
       debugPrint('🎁 Extracting NIP-59 rumor...');
 
@@ -223,8 +228,10 @@ class NostrService {
       // Validate rumor timestamp (canonical time) - NIP-59 compliance
       final rumorTimestamp = rumor.createdAt;
       final now = DateTime.now();
-      final maxAge = now.subtract(const Duration(hours: 24)); // Accept rumors up to 24h old
-      
+      final maxAge = now.subtract(
+        const Duration(hours: 24),
+      ); // Accept rumors up to 24h old
+
       if (rumorTimestamp != null && rumorTimestamp.isBefore(maxAge)) {
         debugPrint('❌ Rumor too old: $rumorTimestamp (max age: 24h)');
         return;
@@ -587,6 +594,9 @@ class NostrService {
       kinds: [1059], // NIP-59 Gift Wrap events
       p: [_currentKeyPair!.public], // Messages directed to our pubkey
       limit: 100, // Limit to prevent excessive historical events
+      since: DateTime.now().subtract(
+        const Duration(days: 2),
+      ), // gift wraps events have time tweaked
     );
 
     debugPrint('📡 Starting blind signatures subscription...');
@@ -643,8 +653,10 @@ class NostrService {
             // Validate rumor timestamp (canonical time) - NIP-59 compliance
             final rumorTimestamp = decryptedEvent.createdAt;
             final now = DateTime.now();
-            final maxAge = now.subtract(const Duration(hours: 24)); // Accept rumors up to 24h old
-            
+            final maxAge = now.subtract(
+              const Duration(hours: 24),
+            ); // Accept rumors up to 24h old
+
             if (rumorTimestamp != null && rumorTimestamp.isBefore(maxAge)) {
               debugPrint('❌ Rumor too old: $rumorTimestamp (max age: 24h)');
               return null;
