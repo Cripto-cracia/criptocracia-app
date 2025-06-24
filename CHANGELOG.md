@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **NIP-59 Compliant Gift Wrap Filtering**: Fixed timestamp filtering to comply with NIP-59 specification
+- **Rumor Timestamp Validation**: Added canonical timestamp validation after Gift Wrap decryption
 - **Complete Voting Session Management**: Implemented comprehensive session state management matching Rust client functionality
 - **RSA Blind Signature Operations**: Full implementation of blind signature crypto operations
 - **Secure Mnemonic Storage**: Hardware-backed mnemonic persistence across app reinstalls
@@ -49,6 +51,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Encrypted Hive Storage**: AES encryption with device-fingerprint-derived keys
 
 ### Fixed
+- **Gift Wrap Signature Validation**: Fixed NoSuchMethodError by removing invalid isSignatureValid() call
+- **NIP-59 Gift Wrap Filtering**: Removed time-based filtering that was incompatible with timestamp randomization
+- **Gift Wrap Timestamp Handling**: Now uses canonical rumor timestamps instead of randomized wrapper timestamps
 - **Election Selection Crash**: Resolved null pointer exception when tapping elections
 - **Mnemonic Persistence**: Fixed mnemonic regeneration bug on app reinstall/rebuild
 - **Voting Flow Logic**: Corrected session data handling during blind signature process

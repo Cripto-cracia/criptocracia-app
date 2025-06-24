@@ -12,6 +12,7 @@ class VoterSessionService {
   static const _electionIdKey = 'voter_election_id';
   static const _blindingSecretKey = 'voter_blinding_secret';
   static const _msgRandomizerKey = 'voter_msg_randomizer';
+  static const _rsaPubKeyKey = 'voter_rsa_pub_key';
 
   static const _secureStorage = FlutterSecureStorage();
 
@@ -21,6 +22,7 @@ class VoterSessionService {
     BlindingResult result,
     Uint8List hashBytes,
     String electionId,
+    String rsaPubKey,
   ) async {
     debugPrint('💾 Saving initial voting session for election: $electionId');
     
@@ -31,6 +33,7 @@ class VoterSessionService {
     );
     await _secureStorage.write(key: _hashBytesKey, value: base64.encode(hashBytes));
     await _secureStorage.write(key: _electionIdKey, value: electionId);
+    await _secureStorage.write(key: _rsaPubKeyKey, value: rsaPubKey);
     
     // Store blinding secret (needed for later unblinding)
     await _secureStorage.write(key: _blindingSecretKey, value: base64.encode(result.secret));
@@ -96,6 +99,11 @@ class VoterSessionService {
     return decoded.isEmpty ? null : decoded;
   }
 
+  /// Get RSA public key for current election
+  static Future<String?> getRsaPubKey() async {
+    return await _secureStorage.read(key: _rsaPubKeyKey);
+  }
+
 
   /// Clear all session data
   static Future<void> clearSession() async {
@@ -107,6 +115,7 @@ class VoterSessionService {
     await _secureStorage.delete(key: _electionIdKey);
     await _secureStorage.delete(key: _blindingSecretKey);
     await _secureStorage.delete(key: _msgRandomizerKey);
+    await _secureStorage.delete(key: _rsaPubKeyKey);
     await _secureStorage.delete(key: 'blind_signature');
     
     debugPrint('✅ Session data cleared successfully');
@@ -149,6 +158,7 @@ class VoterSessionService {
       'secret': await getBlindingSecret(),
       'messageRandomizer': await getMessageRandomizer(),
       'blindSignature': await getBlindSignature(),
+      'rsaPubKey': await getRsaPubKey(),
     };
   }
 

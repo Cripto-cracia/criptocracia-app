@@ -17,6 +17,7 @@ This Flutter app is the mobile voter client for the Criptocracia voting system. 
 - **📱 Cross-Platform**: Native support for Android, iOS, Web, Windows, macOS, and Linux
 - **🌍 Multi-Language**: English and Spanish localization support
 - **🔒 Secure Persistence**: Mnemonic phrases survive app reinstalls with enhanced security
+- **📨 Real-time Messaging**: NIP-59 compliant Gift Wrap message processing for voting protocol
 
 ## 🏗️ Architecture
 
@@ -26,7 +27,8 @@ This Flutter app is the mobile voter client for the Criptocracia voting system. 
 - **SecureStorageService**: Hardware-backed encrypted storage with device fingerprinting
 - **VoterSessionService**: Comprehensive voting session state management
 - **CryptoService**: Complete RSA blind signature operations
-- **NostrService**: NIP-59 encrypted communication with Nostr relays
+- **NostrService**: NIP-59 encrypted communication with Gift Wrap event processing
+- **BlindSignatureProcessor**: Real-time processing of blind signature responses
 
 ### Security Model
 
