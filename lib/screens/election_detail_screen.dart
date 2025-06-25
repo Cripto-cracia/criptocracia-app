@@ -1,11 +1,14 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/election.dart';
-import '../providers/voting_provider.dart';
-import '../widgets/candidate_card.dart';
-import 'voting_screen.dart';
+import '../widgets/vote_confirmation_dialog.dart';
 import '../generated/app_localizations.dart';
 import '../services/selected_election_service.dart';
+import '../services/vote_service.dart';
+import '../services/voter_session_service.dart';
+import '../providers/election_provider.dart';
 
 class ElectionDetailScreen extends StatefulWidget {
   final Election election;
@@ -17,33 +20,197 @@ class ElectionDetailScreen extends StatefulWidget {
 }
 
 class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
+  int? _selectedCandidateId;
+  bool _isVoting = false;
+  bool _hasVoteToken = false;
+  bool _isRequestingToken = false;
+  StreamSubscription<VoteTokenEvent>? _voteTokenSubscription;
+  Election? _currentElection; // Track current election state
+
   @override
   void initState() {
     super.initState();
+    _currentElection = widget.election;
     // Save this election as the selected one when the user opens it
     _saveSelectedElection();
+    _checkVoteTokenAvailability();
+    _startVoteTokenListener();
+  }
+
+  @override
+  void dispose() {
+    _voteTokenSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _saveSelectedElection() async {
     try {
       await SelectedElectionService.setSelectedElection(widget.election);
-      debugPrint('💾 Saved selected election: ${widget.election.name} (${widget.election.id})');
+      debugPrint(
+        '💾 Saved selected election: ${widget.election.name} (${widget.election.id})',
+      );
     } catch (e) {
       debugPrint('❌ Error saving selected election: $e');
     }
   }
 
+  Future<void> _checkVoteTokenAvailability() async {
+    try {
+      final session = await VoterSessionService.getCompleteSession();
+      final hasToken =
+          session != null &&
+          session['blindSignature'] != null &&
+          session['electionId'] == widget.election.id;
+
+      // Check if we have an initial session (which means token request was started)
+      final hasInitialSession = await VoterSessionService.hasInitialSession();
+      final sessionElectionId = await VoterSessionService.getElectionId();
+      final isRequestingForThisElection =
+          hasInitialSession &&
+          sessionElectionId == widget.election.id &&
+          !hasToken;
+
+      setState(() {
+        _hasVoteToken = hasToken;
+        _isRequestingToken = isRequestingForThisElection;
+      });
+
+      debugPrint('🎫 Vote token available: $_hasVoteToken');
+      debugPrint('🔄 Requesting token: $_isRequestingToken');
+      _debugCurrentState();
+    } catch (e) {
+      debugPrint('❌ Error checking vote token: $e');
+      setState(() {
+        _hasVoteToken = false;
+        _isRequestingToken = false;
+      });
+    }
+  }
+
+  void _startVoteTokenListener() {
+    _voteTokenSubscription = VoterSessionService.voteTokenStream.listen(
+      (event) {
+        debugPrint('🔔 Received vote token event: $event');
+
+        // Only process events for this election
+        if (event.electionId == widget.election.id && event.isAvailable) {
+          debugPrint('✅ Vote token now available for this election!');
+          debugPrint(
+            '🔍 Before setState - _hasVoteToken: $_hasVoteToken, _isRequestingToken: $_isRequestingToken',
+          );
+
+          if (mounted) {
+            setState(() {
+              _hasVoteToken = true;
+              _isRequestingToken = false;
+            });
+
+            debugPrint(
+              '🔍 After setState - _hasVoteToken: $_hasVoteToken, _isRequestingToken: $_isRequestingToken',
+            );
+            _debugCurrentState();
+
+            // Show success feedback
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('✅ Vote token received! You can now vote.'),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        }
+      },
+      onError: (error) {
+        debugPrint('❌ Vote token stream error: $error');
+      },
+    );
+
+    debugPrint(
+      '🎧 Started listening for vote token events for election: ${widget.election.id}',
+    );
+  }
+
+  void _debugCurrentState() {
+    final now = DateTime.now();
+    final election = _currentElection ?? widget.election;
+    final isActive =
+        election.status.toLowerCase() == 'in-progress' ||
+        (election.status.toLowerCase() == 'open' &&
+            now.isAfter(election.startTime) &&
+            now.isBefore(election.endTime));
+
+    debugPrint('🔍 === CURRENT STATE DEBUG ===');
+    debugPrint('   Election ID: ${election.id}');
+    debugPrint('   Election Status: ${election.status}');
+    debugPrint('   Start Time: ${election.startTime}');
+    debugPrint('   End Time: ${election.endTime}');
+    debugPrint('   Current Time: $now');
+    debugPrint('   Is Active: $isActive');
+    debugPrint('   Has Vote Token: $_hasVoteToken');
+    debugPrint('   Is Requesting Token: $_isRequestingToken');
+    debugPrint('   Is Voting: $_isVoting');
+    debugPrint('   Selected Candidate: $_selectedCandidateId');
+    debugPrint('   Candidates Count: ${election.candidates.length}');
+    debugPrint(
+      '   Allow Selection: ${election.status.toLowerCase() == 'open' || election.status.toLowerCase() == 'in-progress'}',
+    );
+    debugPrint('   Allow Voting: $isActive');
+    debugPrint('=============================');
+  }
+
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final isActive =
-        widget.election.status.toLowerCase() == 'open' &&
-        now.isAfter(widget.election.startTime) &&
-        now.isBefore(widget.election.endTime);
+    return Consumer<ElectionProvider>(
+      builder: (context, provider, child) {
+        // Get the most up-to-date election from provider
+        final latestElection = provider.elections.firstWhere(
+          (e) => e.id == widget.election.id,
+          orElse: () => widget.election, // Fallback to original if not found
+        );
 
+        // Update our current election reference if it changed
+        if (_currentElection?.status != latestElection.status) {
+          debugPrint(
+            '🔄 Election status updated in UI: ${_currentElection?.status} -> ${latestElection.status}',
+          );
+          _currentElection = latestElection;
+        }
+
+        final now = DateTime.now();
+        final isActive =
+            latestElection.status.toLowerCase() == 'in-progress' ||
+            (latestElection.status.toLowerCase() == 'open' &&
+                now.isAfter(latestElection.startTime) &&
+                now.isBefore(latestElection.endTime));
+
+        // Allow candidate selection if election is open or in-progress
+        final allowCandidateSelection =
+            latestElection.status.toLowerCase() == 'open' ||
+            latestElection.status.toLowerCase() == 'in-progress';
+        final allowVoting = isActive;
+
+        return _buildElectionDetail(
+          context,
+          latestElection,
+          isActive,
+          allowCandidateSelection,
+          allowVoting,
+        );
+      },
+    );
+  }
+
+  Widget _buildElectionDetail(
+    BuildContext context,
+    Election election,
+    bool isActive,
+    bool allowCandidateSelection,
+    bool allowVoting,
+  ) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.election.name),
+        title: Text(election.name),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: SingleChildScrollView(
@@ -62,12 +229,12 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            widget.election.name,
+                            election.name,
                             style: Theme.of(context).textTheme.headlineSmall
                                 ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                         ),
-                        _buildStatusChip(context),
+                        _buildStatusChip(context, election),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -84,14 +251,41 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                AppLocalizations.of(context).electionStartLabel(_formatDateTime(widget.election.startTime)),
+                                AppLocalizations.of(context).electionStartLabel(
+                                  _formatDateTime(election.startTime),
+                                ),
                                 style: Theme.of(context).textTheme.bodyMedium,
                               ),
                               Text(
-                                AppLocalizations.of(context).electionEndLabel(_formatDateTime(widget.election.endTime)),
+                                AppLocalizations.of(context).electionEndLabel(
+                                  _formatDateTime(election.endTime),
+                                ),
                                 style: Theme.of(context).textTheme.bodyMedium,
                               ),
                             ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Election ID
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.fingerprint,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Election ID: ${election.id}',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  fontFamily: 'monospace',
+                                  color: Theme.of(context).colorScheme.onSurface
+                                      .withValues(alpha: 0.7),
+                                ),
                           ),
                         ),
                       ],
@@ -105,7 +299,9 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
 
             // Candidates Section
             Text(
-              AppLocalizations.of(context).candidatesCount(widget.election.candidates.length),
+              AppLocalizations.of(
+                context,
+              ).candidatesCount(election.candidates.length),
               style: Theme.of(
                 context,
               ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
@@ -113,7 +309,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
 
             const SizedBox(height: 12),
 
-            if (widget.election.candidates.isEmpty)
+            if (election.candidates.isEmpty)
               Center(
                 child: Padding(
                   padding: const EdgeInsets.all(32),
@@ -124,12 +320,178 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
                 ),
               )
             else
-              ...widget.election.candidates.map(
-                (candidate) => CandidateCard(
-                  candidate: candidate,
-                  onTap: isActive ? () => _navigateToVoting(candidate) : null,
-                  showVoteButton: isActive,
+              // Candidate selection with radio buttons
+              ...election.candidates.map(
+                (candidate) => Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: RadioListTile<int>(
+                    title: Text(
+                      candidate.name,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    subtitle: Text('Candidate ID: ${candidate.id}'),
+                    value: candidate.id,
+                    groupValue: _selectedCandidateId,
+                    onChanged: allowCandidateSelection
+                        ? (value) {
+                            setState(() {
+                              _selectedCandidateId = value;
+                            });
+                            debugPrint(
+                              '🗳️ Selected candidate: ${candidate.name} (ID: ${candidate.id})',
+                            );
+                          }
+                        : null,
+                    activeColor: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
+              ),
+
+            const SizedBox(height: 20),
+
+            // Debug information
+            if (kDebugMode) // Show only in debug builds
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.1),
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Debug Info:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                    Text('Active: $isActive', style: TextStyle(fontSize: 11)),
+                    Text(
+                      'Allow Selection: $allowCandidateSelection',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    Text(
+                      'Allow Voting: $allowVoting',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    Text(
+                      'Has Token: $_hasVoteToken',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    Text(
+                      'Requesting: $_isRequestingToken',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    Text(
+                      'Status: ${election.status}',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    Text(
+                      'Candidates: ${election.candidates.length}',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Vote token status
+            if (!_hasVoteToken && allowCandidateSelection)
+              Container(
+                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: _isRequestingToken
+                      ? Colors.blue.withValues(alpha: 0.1)
+                      : Colors.orange.withValues(alpha: 0.1),
+                  border: Border.all(
+                    color: _isRequestingToken ? Colors.blue : Colors.orange,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    if (_isRequestingToken)
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.blue,
+                          ),
+                        ),
+                      )
+                    else
+                      Icon(Icons.info_outline, color: Colors.orange),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _isRequestingToken
+                            ? 'Requesting vote token... Please wait.'
+                            : 'You need to request a vote token first by selecting this election from the elections list.',
+                        style: TextStyle(
+                          color: _isRequestingToken
+                              ? Colors.blue[800]
+                              : Colors.orange[800],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Action buttons
+            if (allowCandidateSelection && election.candidates.isNotEmpty)
+              Column(
+                children: [
+                  // Vote button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _selectedCandidateId != null && !_isVoting
+                          ? (_hasVoteToken
+                                ? (allowVoting
+                                      ? _showVoteConfirmation
+                                      : _showElectionNotStarted)
+                                : _showNoTokenDialog)
+                          : null,
+                      icon: _isVoting
+                          ? SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(Icons.how_to_vote),
+                      label: Text(_isVoting ? 'Sending Vote...' : 'Vote'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Clear selection button
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _selectedCandidateId != null && !_isVoting
+                          ? _clearSelection
+                          : null,
+                      icon: Icon(Icons.clear),
+                      label: Text('Clear Selection'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                    ),
+                  ),
+                ],
               ),
           ],
         ),
@@ -137,12 +499,12 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
     );
   }
 
-  Widget _buildStatusChip(BuildContext context) {
+  Widget _buildStatusChip(BuildContext context, Election election) {
     Color chipColor;
     String label;
     IconData icon;
 
-    switch (widget.election.status.toLowerCase()) {
+    switch (election.status.toLowerCase()) {
       case 'open':
         chipColor = Colors.orange;
         label = AppLocalizations.of(context).statusOpen;
@@ -165,7 +527,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
         break;
       default:
         chipColor = Colors.grey;
-        label = widget.election.status;
+        label = election.status;
         icon = Icons.info_outline;
     }
 
@@ -191,15 +553,211 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
         '${dateTime.minute.toString().padLeft(2, '0')}';
   }
 
-  void _navigateToVoting(Candidate candidate) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ChangeNotifierProvider(
-          create: (_) => VotingProvider(),
-          child: VotingScreen(election: widget.election, candidate: candidate),
-        ),
+  void _clearSelection() {
+    setState(() {
+      _selectedCandidateId = null;
+    });
+    debugPrint('🗑️ Cleared candidate selection');
+  }
+
+  void _showVoteConfirmation() {
+    if (_selectedCandidateId == null) return;
+
+    final election = _currentElection ?? widget.election;
+    final selectedCandidate = election.candidates.firstWhere(
+      (c) => c.id == _selectedCandidateId,
+    );
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => VoteConfirmationDialog(
+        candidate: selectedCandidate,
+        election: election,
+        onConfirm: _sendVote,
       ),
     );
+  }
+
+  void _showNoTokenDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            const SizedBox(width: 12),
+            Text('Vote Token Required'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'You need a vote token to cast your vote.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'To get a vote token:',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '1. Go back to the elections list\n'
+                    '2. Tap on this election again\n'
+                    '3. The app will request a vote token automatically',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('OK'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pop(); // Go back to elections list
+            },
+            child: Text('Go to Elections'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showElectionNotStarted() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.schedule, color: Colors.blue),
+            const SizedBox(width: 12),
+            Text('Election Not Started'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'The voting period for this election has not started yet.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Election Times:',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Starts: ${_formatDateTime((_currentElection ?? widget.election).startTime)}\n'
+                    'Ends: ${_formatDateTime((_currentElection ?? widget.election).endTime)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'You can select your candidate now and vote when the election starts.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.primary,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _sendVote() async {
+    if (_selectedCandidateId == null) return;
+
+    setState(() {
+      _isVoting = true;
+    });
+
+    try {
+      debugPrint(
+        '🗳️ Sending vote for candidate $_selectedCandidateId in election ${widget.election.id}',
+      );
+
+      final voteService = VoteService();
+      await voteService.sendVote(
+        electionId: (_currentElection ?? widget.election).id,
+        candidateId: _selectedCandidateId!,
+      );
+
+      debugPrint('✅ Vote sent successfully!');
+
+      if (mounted) {
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Vote sent successfully!'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+
+        // Navigate back to elections list
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      debugPrint('❌ Error sending vote: $e');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Error sending vote: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isVoting = false;
+        });
+      }
+    }
   }
 }

@@ -115,6 +115,7 @@ class BlindSignatureProcessor {
 
       // 8) Store the vote token in session
       debugPrint('💾 Storing vote token in session...');
+      debugPrint('🔍 CRITICAL: NOT overwriting original randomizer - keeping blinding randomizer for vote');
       await VoterSessionService.saveBlindSignatureResponse(
         _signatureToBytes(unblindedSignature),
         messageRandomizer,
