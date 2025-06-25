@@ -40,22 +40,6 @@ class CryptoService {
         '   MessageRandomizer: ${result.messageRandomizer?.length ?? 'NULL'}',
       );
 
-      // CRITICAL: Check if messageRandomizer is actually available
-      if (result.messageRandomizer == null) {
-        debugPrint('🚨 WARNING: BlindingResult.messageRandomizer is NULL!');
-        debugPrint(
-          '🚨 This indicates the blind_rsa_signatures library is not storing the randomizer',
-        );
-        debugPrint('🚨 This will cause vote verification to fail');
-        debugPrint(
-          '🚨 API call was: ecPublicKey.blind(null, hashedNonce, true, options)',
-        );
-      } else {
-        debugPrint(
-          '✅ MessageRandomizer available: ${result.messageRandomizer!.length} bytes',
-        );
-      }
-
       return result;
     } catch (e) {
       debugPrint('❌ Failed to blind nonce: $e');

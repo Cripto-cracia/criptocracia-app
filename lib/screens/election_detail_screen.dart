@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/election.dart';
@@ -350,8 +351,8 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
 
             const SizedBox(height: 20),
 
-            // Debug information (remove in production)
-            if (true) // Always show debug info for now
+            // Debug information
+            if (kDebugMode) // Show only in debug builds
               Container(
                 padding: const EdgeInsets.all(12),
                 margin: const EdgeInsets.only(bottom: 16),
