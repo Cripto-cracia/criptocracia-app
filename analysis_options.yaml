@@ -13,9 +13,8 @@ analyzer:
   exclude:
     # Exclude build and generated files
     - build/**
-    - "**.g.dart"
-    - "**.freezed.dart"
-
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`
