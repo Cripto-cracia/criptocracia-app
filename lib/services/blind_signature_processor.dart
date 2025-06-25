@@ -8,9 +8,10 @@ import 'crypto_service.dart';
 /// Service for processing blind signature responses from the Election Coordinator
 /// Handles the unblinding and verification of vote tokens
 class BlindSignatureProcessor {
-  static const BlindSignatureProcessor _instance = BlindSignatureProcessor._internal();
+  static const BlindSignatureProcessor _instance =
+      BlindSignatureProcessor._internal();
   static BlindSignatureProcessor get instance => _instance;
-  
+
   const BlindSignatureProcessor._internal();
 
   /// Process a blind signature response message (kind=1)
@@ -34,7 +35,7 @@ class BlindSignatureProcessor {
       // 2) Retrieve session data for this election
       debugPrint('🔑 Retrieving session data for election: ${message.id}');
       final sessionData = await VoterSessionService.getCompleteSession();
-      
+
       if (sessionData == null) {
         debugPrint('❌ No session data found');
         return false;
@@ -42,7 +43,9 @@ class BlindSignatureProcessor {
 
       final storedElectionId = sessionData['electionId'] as String?;
       if (storedElectionId != message.id) {
-        debugPrint('❌ Election ID mismatch: stored=$storedElectionId, received=${message.id}');
+        debugPrint(
+          '❌ Election ID mismatch: stored=$storedElectionId, received=${message.id}',
+        );
         return false;
       }
 
@@ -52,7 +55,10 @@ class BlindSignatureProcessor {
       final secret = sessionData['secret'] as Uint8List?;
       final blindingResult = sessionData['blindingResult'] as BlindingResult?;
 
-      if (nonce == null || hashBytes == null || secret == null || blindingResult == null) {
+      if (nonce == null ||
+          hashBytes == null ||
+          secret == null ||
+          blindingResult == null) {
         debugPrint('❌ Missing required session components');
         debugPrint('   nonce: ${nonce != null}');
         debugPrint('   hashBytes: ${hashBytes != null}');
@@ -69,28 +75,42 @@ class BlindSignatureProcessor {
       // 3) Get EC public key from election data
       final ecPublicKey = await _getElectionCoordinatorPublicKey(message.id);
       if (ecPublicKey == null) {
-        debugPrint('❌ Could not retrieve EC public key for election: ${message.id}');
+        debugPrint(
+          '❌ Could not retrieve EC public key for election: ${message.id}',
+        );
         return false;
       }
 
       // 4) Reconstruct BlindSignature from bytes
-      debugPrint('🔐 Reconstructing BlindSignature from ${blindSigBytes.length} bytes...');
+      debugPrint(
+        '🔐 Reconstructing BlindSignature from ${blindSigBytes.length} bytes...',
+      );
       // Note: This assumes the blind_rsa_signatures library has a way to reconstruct from bytes
       // The exact method may vary depending on the library implementation
-      
-      // 5) Get message randomizer (if available)
-      final messageRandomizer = blindingResult.messageRandomizer;
-      
+
+      // 5) Get message randomizer from same source as VoteService (CRITICAL for consistency)
+      final messageRandomizer =
+          await VoterSessionService.getMessageRandomizer();
+
+      // CRITICAL: Require randomizer to exist (matching Rust behavior)
+      if (messageRandomizer == null) {
+        debugPrint('❌ Missing message randomizer for token finalization');
+        debugPrint('❌ This matches Rust behavior - randomizer is required');
+        return false;
+      }
+
       debugPrint('🔓 Unblinding signature with stored parameters...');
       debugPrint('   Using secret: ${secret.length} bytes');
-      debugPrint('   Using message randomizer: ${messageRandomizer?.length ?? 0} bytes');
+      debugPrint(
+        '   Using message randomizer: ${messageRandomizer.length} bytes (from VoterSessionService)',
+      );
       debugPrint('   Using original hash: ${hashBytes.length} bytes');
 
       // 6) Unblind the signature using CryptoService
       final unblindedSignature = CryptoService.unblindSignature(
         blindSigBytes,
         secret,
-        messageRandomizer ?? Uint8List(0), // Handle null messageRandomizer
+        messageRandomizer, // Pass actual randomizer (never null due to check above)
         hashBytes,
         ecPublicKey,
       );
@@ -101,7 +121,7 @@ class BlindSignatureProcessor {
       debugPrint('🔍 Verifying vote token against EC public key...');
       final isValid = CryptoService.verifyVoteToken(
         unblindedSignature,
-        messageRandomizer ?? Uint8List(0),
+        messageRandomizer, // Using same randomizer (guaranteed non-null)
         nonce,
         ecPublicKey,
       );
@@ -115,17 +135,19 @@ class BlindSignatureProcessor {
 
       // 8) Store the vote token in session
       debugPrint('💾 Storing vote token in session...');
-      debugPrint('🔍 CRITICAL: NOT overwriting original randomizer - keeping blinding randomizer for vote');
-      await VoterSessionService.saveBlindSignatureResponse(
+      debugPrint(
+        '🔍 CRITICAL: Storing UNBLINDED signature (ready for VoteService)',
+      );
+      debugPrint('🔍 CRITICAL: Using SAME randomizer source as VoteService');
+      await VoterSessionService.saveUnblindedSignature(
         _signatureToBytes(unblindedSignature),
-        messageRandomizer,
+        messageRandomizer, // Same randomizer that was used for unblinding
       );
 
       debugPrint('✅ Vote token stored successfully');
       debugPrint('🎫 Ready to cast vote for election: ${message.id}');
 
       return true;
-
     } catch (e) {
       debugPrint('❌ Error processing blind signature response: $e');
       return false;
@@ -137,14 +159,14 @@ class BlindSignatureProcessor {
   Future<PublicKey?> _getElectionCoordinatorPublicKey(String electionId) async {
     try {
       debugPrint('🔑 Retrieving EC RSA public key for election: $electionId');
-      
+
       // Get the session data which includes the election information
       final sessionData = await VoterSessionService.getCompleteSession();
       if (sessionData == null) {
         debugPrint('❌ No session data available');
         return null;
       }
-      
+
       // For now, we'll use the RSA public key that was used during the initial blinding
       // This key should be the same one used by the Election Coordinator for signing
       final rsaPubKeyBase64 = sessionData['rsaPubKey'] as String?;
@@ -152,14 +174,15 @@ class BlindSignatureProcessor {
         debugPrint('❌ No RSA public key found in session data');
         return null;
       }
-      
-      debugPrint('🔓 Converting base64 RSA public key to PublicKey object');
-      final der = base64.decode(rsaPubKeyBase64);
+
+      debugPrint('🔓 Converting Base64 RSA public key to PublicKey object');
+      final der = base64.decode(
+        rsaPubKeyBase64,
+      ); // rsaPubKeyBase64 is Base64-encoded DER from Nostr event
       final publicKey = PublicKey.fromDer(der);
-      
+
       debugPrint('✅ EC RSA public key retrieved successfully');
       return publicKey;
-      
     } catch (e) {
       debugPrint('❌ Error retrieving EC RSA public key: $e');
       return null;
@@ -171,15 +194,14 @@ class BlindSignatureProcessor {
   Uint8List _signatureToBytes(Signature signature) {
     try {
       debugPrint('🔄 Converting signature to bytes for storage');
-      
+
       // The blind_rsa_signatures library should provide a way to serialize signatures
       // For now, we'll use the signature bytes directly if available
       // This may need adjustment based on the actual library implementation
       final signatureBytes = signature.bytes;
-      
+
       debugPrint('✅ Signature converted to ${signatureBytes.length} bytes');
       return signatureBytes;
-      
     } catch (e) {
       debugPrint('❌ Error converting signature to bytes: $e');
       // Return empty bytes if conversion fails
@@ -204,9 +226,8 @@ class BlindSignatureProcessor {
       // 1. Parse the response payload
       // 2. Update voting status
       // 3. Notify the UI of successful vote casting
-      
+
       debugPrint('✅ Vote response processed');
-      
     } catch (e) {
       debugPrint('❌ Error processing vote response: $e');
     }
@@ -215,7 +236,7 @@ class BlindSignatureProcessor {
   /// Process any message based on its kind
   Future<bool> processMessage(Message message) async {
     debugPrint('📨 Processing message: $message');
-    
+
     switch (message.kind) {
       case 1:
         return await processBlindSignatureResponse(message);

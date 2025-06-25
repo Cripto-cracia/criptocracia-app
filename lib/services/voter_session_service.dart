@@ -14,15 +14,17 @@ class VoterSessionService {
   static const _blindingSecretKey = 'voter_blinding_secret';
   static const _msgRandomizerKey = 'voter_msg_randomizer';
   static const _rsaPubKeyKey = 'voter_rsa_pub_key';
+  static const _unblindedSignatureKey = 'voter_unblinded_signature';
 
   // Using SecureStorageService for all storage operations
 
   // Stream controller for vote token availability notifications
-  static final StreamController<VoteTokenEvent> _voteTokenController = 
+  static final StreamController<VoteTokenEvent> _voteTokenController =
       StreamController<VoteTokenEvent>.broadcast();
 
   /// Stream that emits when vote tokens become available for elections
-  static Stream<VoteTokenEvent> get voteTokenStream => _voteTokenController.stream;
+  static Stream<VoteTokenEvent> get voteTokenStream =>
+      _voteTokenController.stream;
 
   /// Save initial voting session state when user selects election
   static Future<void> saveSession(
@@ -33,50 +35,71 @@ class VoterSessionService {
     String rsaPubKey,
   ) async {
     debugPrint('💾 Saving initial voting session for election: $electionId');
-    
-    await SecureStorageService.write(key: _nonceKey, value: base64.encode(nonce));
+
+    await SecureStorageService.write(
+      key: _nonceKey,
+      value: base64.encode(nonce),
+    );
     await SecureStorageService.write(
       key: _blindingResultKey,
       value: jsonEncode(result.toJson()),
     );
-    await SecureStorageService.write(key: _hashBytesKey, value: base64.encode(hashBytes));
+    await SecureStorageService.write(
+      key: _hashBytesKey,
+      value: base64.encode(hashBytes),
+    );
     await SecureStorageService.write(key: _electionIdKey, value: electionId);
     await SecureStorageService.write(key: _rsaPubKeyKey, value: rsaPubKey);
-    
+
     // Store blinding secret (needed for later unblinding)
-    await SecureStorageService.write(key: _blindingSecretKey, value: base64.encode(result.secret));
-    
+    await SecureStorageService.write(
+      key: _blindingSecretKey,
+      value: base64.encode(result.secret),
+    );
+
     // CRITICAL: Store the original randomizer used during blinding (this is the 'r' from Rust)
     // This must be the same randomizer that was used to create the blinded message
     if (result.messageRandomizer != null) {
-      await SecureStorageService.write(key: _msgRandomizerKey, value: base64.encode(result.messageRandomizer!));
-      debugPrint('🔐 Stored original blinding randomizer: ${result.messageRandomizer!.length} bytes');
+      await SecureStorageService.write(
+        key: _msgRandomizerKey,
+        value: base64.encode(result.messageRandomizer!),
+      );
+      debugPrint(
+        '🔐 Stored original blinding randomizer: ${result.messageRandomizer!.length} bytes',
+      );
     } else {
-      debugPrint('⚠️ WARNING: No messageRandomizer in BlindingResult - this may cause vote verification issues');
+      debugPrint(
+        '⚠️ WARNING: No messageRandomizer in BlindingResult - this may cause vote verification issues',
+      );
     }
-    
+
     debugPrint('✅ Initial session data saved successfully');
   }
 
-  /// Save additional session data after receiving blind signature response
-  static Future<void> saveBlindSignatureResponse(
-    Uint8List blindSignature,
+  /// Save additional session data after receiving unblinded signature response
+  static Future<void> saveUnblindedSignature(
+    Uint8List unblindedSignature,
     Uint8List? messageRandomizer,
   ) async {
-    debugPrint('💾 Saving blind signature response data');
-    
-    // Store the blind signature received from Election Coordinator
-    await SecureStorageService.write(key: 'blind_signature', value: base64.encode(blindSignature));
-    
+    debugPrint('💾 Saving unblinded signature data');
+
+    // Store the unblinded signature received from Election Coordinator
+    await SecureStorageService.write(
+      key: _unblindedSignatureKey,
+      value: base64.encode(unblindedSignature),
+    );
+
     // NOTE: We do NOT overwrite the original randomizer here
     // The randomizer used in voting must be the same one used during blinding
     // which is already stored during saveSession()
     if (messageRandomizer != null) {
-      debugPrint('🔍 EC provided messageRandomizer: ${messageRandomizer.length} bytes (not overwriting original)');
+      debugPrint(
+        '🔍 EC provided messageRandomizer: ${messageRandomizer.length} bytes (not overwriting original)',
+      );
     }
-    
+
     debugPrint('✅ Blind signature response saved successfully');
-    
+
     // Emit vote token availability event
     final electionId = await getElectionId();
     if (electionId != null) {
@@ -87,7 +110,9 @@ class VoterSessionService {
           timestamp: DateTime.now(),
         );
         _voteTokenController.add(event);
-        debugPrint('📡 Emitted vote token available event for election: $electionId');
+        debugPrint(
+          '📡 Emitted vote token available event for election: $electionId',
+        );
       } else {
         debugPrint('⚠️ Stream controller is closed, skipping event emission');
       }
@@ -139,11 +164,10 @@ class VoterSessionService {
     return await SecureStorageService.read(key: _rsaPubKeyKey);
   }
 
-
   /// Clear all session data
   static Future<void> clearSession() async {
     debugPrint('🗑️ Clearing all voting session data');
-    
+
     await SecureStorageService.delete(key: _nonceKey);
     await SecureStorageService.delete(key: _blindingResultKey);
     await SecureStorageService.delete(key: _hashBytesKey);
@@ -151,8 +175,8 @@ class VoterSessionService {
     await SecureStorageService.delete(key: _blindingSecretKey);
     await SecureStorageService.delete(key: _msgRandomizerKey);
     await SecureStorageService.delete(key: _rsaPubKeyKey);
-    await SecureStorageService.delete(key: 'blind_signature');
-    
+    await SecureStorageService.delete(key: _unblindedSignatureKey);
+
     debugPrint('✅ Session data cleared successfully');
   }
 
@@ -162,21 +186,24 @@ class VoterSessionService {
     final result = await getBlindingResult();
     final hashBytes = await getHashBytes();
     final electionId = await getElectionId();
-    
-    return nonce != null && result != null && hashBytes != null && electionId != null;
+
+    return nonce != null &&
+        result != null &&
+        hashBytes != null &&
+        electionId != null;
   }
 
   /// Check if complete session exists (after receiving blind signature response)
   static Future<bool> hasCompleteSession() async {
     final hasInitial = await hasInitialSession();
-    final blindSig = await getBlindSignature();
-    
-    return hasInitial && blindSig != null;
+    final unblindSig = await getUnblindedSignature();
+
+    return hasInitial && unblindSig != null;
   }
 
-  /// Get stored blind signature from Election Coordinator
-  static Future<Uint8List?> getBlindSignature() async {
-    final data = await SecureStorageService.read(key: 'blind_signature');
+  /// Get stored unblinded signature from Election Coordinator
+  static Future<Uint8List?> getUnblindedSignature() async {
+    final data = await SecureStorageService.read(key: _unblindedSignatureKey);
     if (data == null) return null;
     return base64.decode(data);
   }
@@ -184,7 +211,7 @@ class VoterSessionService {
   /// Get complete session state (equivalent to Rust app variable)
   static Future<Map<String, dynamic>?> getCompleteSession() async {
     if (!(await hasInitialSession())) return null;
-    
+
     return {
       'nonce': await getNonce(),
       'blindingResult': await getBlindingResult(),
@@ -192,7 +219,7 @@ class VoterSessionService {
       'electionId': await getElectionId(),
       'secret': await getBlindingSecret(),
       'messageRandomizer': await getMessageRandomizer(),
-      'blindSignature': await getBlindSignature(),
+      'unblindedSignature': await getUnblindedSignature(),
       'rsaPubKey': await getRsaPubKey(),
     };
   }
@@ -202,33 +229,34 @@ class VoterSessionService {
     try {
       final session = await getCompleteSession();
       if (session == null) return false;
-      
+
       // Verify all required components exist
       final nonce = session['nonce'] as Uint8List?;
       final hashBytes = session['hashBytes'] as Uint8List?;
       final electionId = session['electionId'] as String?;
       final blindingResult = session['blindingResult'] as BlindingResult?;
-      
-      if (nonce == null || hashBytes == null || electionId == null || blindingResult == null) {
+
+      if (nonce == null ||
+          hashBytes == null ||
+          electionId == null ||
+          blindingResult == null) {
         return false;
       }
-      
+
       // Verify hash bytes match hashed nonce
-      final expectedHash = Uint8List.fromList(
-        sha256.convert(nonce).bytes
-      );
-      
+      final expectedHash = Uint8List.fromList(sha256.convert(nonce).bytes);
+
       if (hashBytes.length != expectedHash.length) return false;
       for (int i = 0; i < hashBytes.length; i++) {
         if (hashBytes[i] != expectedHash[i]) return false;
       }
-      
+
       return true;
     } catch (e) {
       return false;
     }
   }
-  
+
   /// Dispose of the stream controller (call when app is closing)
   static void dispose() {
     _voteTokenController.close();
