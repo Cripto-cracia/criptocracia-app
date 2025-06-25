@@ -80,13 +80,17 @@ class VoterSessionService {
     // Emit vote token availability event
     final electionId = await getElectionId();
     if (electionId != null) {
-      final event = VoteTokenEvent(
-        electionId: electionId,
-        isAvailable: true,
-        timestamp: DateTime.now(),
-      );
-      _voteTokenController.add(event);
-      debugPrint('📡 Emitted vote token available event for election: $electionId');
+      if (!_voteTokenController.isClosed) {
+        final event = VoteTokenEvent(
+          electionId: electionId,
+          isAvailable: true,
+          timestamp: DateTime.now(),
+        );
+        _voteTokenController.add(event);
+        debugPrint('📡 Emitted vote token available event for election: $electionId');
+      } else {
+        debugPrint('⚠️ Stream controller is closed, skipping event emission');
+      }
     }
   }
 
