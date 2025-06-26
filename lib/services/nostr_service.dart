@@ -568,12 +568,12 @@ class NostrService {
 
     debugPrint('📊 Subscribing to results for election: $electionId');
 
-    // Create filter for election results (kind 1 with election_id tag)
+    // Results are published as kind 35001 addressable events tagged with `d`
     final filter = NostrFilter(
-      kinds: [1], // Regular text notes that contain results
-      since: DateTime.now().subtract(const Duration(hours: 24)),
-      e: [electionId], // Election event reference
-      t: ['election_results'], // Type tag
+      kinds: [35001],
+      additionalFilters: {
+        '#d': [electionId],
+      },
     );
 
     debugPrint('📡 Starting results subscription...');
@@ -585,32 +585,21 @@ class NostrService {
     );
 
     return nostrStream.stream
-        .map((dartNostrEvent) {
-          debugPrint('📥 Received result event: ${dartNostrEvent.id}');
-          return dartNostrEvent;
+        .map((event) {
+          debugPrint('📥 Received result event: ${event.id}');
+          return event;
         })
-        .where((dartNostrEvent) {
-          // Filter for valid result events
-          final hasContent = dartNostrEvent.content?.isNotEmpty ?? false;
-          final hasElectionTag =
-              dartNostrEvent.tags?.any(
-                (tag) =>
-                    tag.length >= 2 && tag[0] == 'e' && tag[1] == electionId,
-              ) ??
-              false;
-          final hasResultTag =
-              dartNostrEvent.tags?.any(
-                (tag) =>
-                    tag.length >= 2 &&
-                    tag[0] == 't' &&
-                    tag[1] == 'election_results',
+        .where((event) {
+          final hasContent = event.content?.isNotEmpty ?? false;
+          final hasDTag = event.tags?.any(
+                (tag) => tag.length >= 2 && tag[0] == 'd' && tag[1] == electionId,
               ) ??
               false;
 
           debugPrint(
-            '🔍 Filtering result: content=$hasContent, election=$hasElectionTag, result=$hasResultTag',
+            '🔍 Filtering result: content=$hasContent, dTag=$hasDTag',
           );
-          return hasContent && hasElectionTag && hasResultTag;
+          return hasContent && hasDTag;
         })
         .map((dartNostrEvent) {
           debugPrint('✅ Processing valid result event: ${dartNostrEvent.id}');
@@ -619,11 +608,10 @@ class NostrService {
             pubkey: dartNostrEvent.pubkey,
             createdAt:
                 (dartNostrEvent.createdAt?.millisecondsSinceEpoch ??
-                    DateTime.now().millisecondsSinceEpoch) ~/
-                1000,
+                        DateTime.now().millisecondsSinceEpoch) ~/
+                    1000,
             kind: dartNostrEvent.kind ?? 0,
-            tags:
-                dartNostrEvent.tags
+            tags: dartNostrEvent.tags
                     ?.map((tag) => tag.map((e) => e.toString()).toList())
                     .toList() ??
                 [],

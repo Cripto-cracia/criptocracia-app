@@ -4,6 +4,8 @@ import 'dart:convert';
 import '../models/election.dart';
 import '../services/nostr_service.dart';
 import '../config/app_config.dart';
+import '../services/election_results_service.dart';
+import '../services/selected_election_service.dart';
 
 class ResultsProvider with ChangeNotifier {
   final NostrService _nostrService = NostrService();
@@ -14,6 +16,7 @@ class ResultsProvider with ChangeNotifier {
   String? _error;
   DateTime? _lastUpdate;
   StreamSubscription? _resultsSubscription;
+  String? _currentElectionId;
   
   Map<int, int> get results => _results;
   bool get isLoading => _isLoading;
@@ -27,14 +30,22 @@ class ResultsProvider with ChangeNotifier {
       notifyListeners();
       return;
     }
-    
+
     _isLoading = true;
     _error = null;
+    _currentElectionId = electionId;
     notifyListeners();
-    
+
     try {
       await _nostrService.connect(AppConfig.relayUrl);
-      
+
+      // Load any stored results for this election
+      final stored = await ElectionResultsService.getResults(electionId);
+      if (stored != null) {
+        _results = stored;
+        _lastUpdate = DateTime.now();
+      }
+
       // Start listening to results
       final resultsStream = _nostrService.subscribeToResults(electionId);
       _resultsSubscription = resultsStream.listen(
@@ -50,7 +61,7 @@ class ResultsProvider with ChangeNotifier {
       _isListening = true;
       _isLoading = false;
       notifyListeners();
-      
+
     } catch (e) {
       _error = 'Failed to start listening to results: $e';
       _isLoading = false;
@@ -59,30 +70,33 @@ class ResultsProvider with ChangeNotifier {
     }
   }
   
-  void _handleResultEvent(event) {
+  void _handleResultEvent(event) async {
     try {
-      final content = jsonDecode(event.content);
-      
-      if (content['type'] == 'vote_count' || content['type'] == 'result_update') {
-        final candidateId = content['candidate_id'];
-        final voteCount = content['vote_count'] ?? content['votes'] ?? 0;
-        
-        if (candidateId != null) {
-          final id = candidateId is int ? candidateId : int.tryParse(candidateId.toString()) ?? 0;
-          _results[id] = voteCount;
-          _lastUpdate = DateTime.now();
-          notifyListeners();
+      final decoded = jsonDecode(event.content);
+
+      if (decoded is List) {
+        final Map<int, int> parsed = {};
+        for (final item in decoded) {
+          if (item is List && item.length >= 2) {
+            final id = int.tryParse(item[0].toString()) ?? 0;
+            final votes = int.tryParse(item[1].toString()) ?? 0;
+            parsed[id] = votes;
+          }
         }
-      } else if (content['type'] == 'election_results') {
-        // Complete results update
-        final results = content['results'] as Map<String, dynamic>?;
-        if (results != null) {
-          _results = results.map((key, value) {
-            final id = int.tryParse(key) ?? 0;
-            return MapEntry(id, value as int);
-          });
+        if (parsed.isNotEmpty) {
+          _results = parsed;
           _lastUpdate = DateTime.now();
           notifyListeners();
+
+          if (_currentElectionId != null &&
+              await SelectedElectionService.isElectionSelected(
+                _currentElectionId!,
+              )) {
+            await ElectionResultsService.saveResults(
+              _currentElectionId!,
+              _results,
+            );
+          }
         }
       }
     } catch (e) {
@@ -94,6 +108,7 @@ class ResultsProvider with ChangeNotifier {
     _resultsSubscription?.cancel();
     _resultsSubscription = null;
     _isListening = false;
+    _currentElectionId = null;
     notifyListeners();
   }
   
@@ -143,6 +158,7 @@ class ResultsProvider with ChangeNotifier {
   @override
   void dispose() {
     stopListening();
+    _currentElectionId = null;
     _nostrService.disconnect();
     super.dispose();
   }
