@@ -104,6 +104,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  StreamSubscription? _electionResultsSubscription;
 
   @override
   void initState() {
@@ -112,6 +113,12 @@ class _MainScreenState extends State<MainScreen> {
     _initializeKeys();
     // Start global election results subscription
     _startGlobalElectionResultsSubscription();
+  }
+
+  @override
+  void dispose() {
+    _electionResultsSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _initializeKeys() async {
@@ -135,7 +142,7 @@ class _MainScreenState extends State<MainScreen> {
       final electionResultsStream = nostrService.subscribeToAllElectionResults(AppConfig.ecPublicKey);
       
       // Listen to the stream to store all election results globally
-      electionResultsStream.listen(
+      _electionResultsSubscription = electionResultsStream.listen(
         (event) {
           debugPrint('🎯 GLOBAL: Election results received in MainScreen: ${event.id}');
           
