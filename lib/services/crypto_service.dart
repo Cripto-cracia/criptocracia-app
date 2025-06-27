@@ -27,22 +27,50 @@ class CryptoService {
     try {
       debugPrint('🔒 Blinding nonce with EC public key');
       debugPrint('   Hashed nonce length: ${hashedNonce.length} bytes');
+      debugPrint('   Hashed nonce (hex): ${hashedNonce.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
 
       const options = Options.defaultOptions;
+      debugPrint('🔧 Calling ecPublicKey.blind() with parameters:');
+      debugPrint('   salt: null');
+      debugPrint('   message: ${hashedNonce.length} bytes');
+      debugPrint('   generateMessageRandomizer: true');
+      debugPrint('   options: $options');
+
       final result = ecPublicKey.blind(null, hashedNonce, true, options);
 
       debugPrint('✅ Nonce blinded successfully');
-      debugPrint(
-        '   Blinded message length: ${result.blindMessage.length} bytes',
-      );
+      debugPrint('📊 DETAILED BlindingResult Analysis:');
+      debugPrint('   Blinded message length: ${result.blindMessage.length} bytes');
+      debugPrint('   Blinded message (first 32 bytes hex): ${result.blindMessage.take(32).map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
       debugPrint('   Secret length: ${result.secret.length} bytes');
-      debugPrint(
-        '   MessageRandomizer: ${result.messageRandomizer?.length ?? 'NULL'}',
-      );
+      debugPrint('   Secret (first 16 bytes hex): ${result.secret.take(16).map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
+      
+      if (result.messageRandomizer != null) {
+        debugPrint('   ✅ MessageRandomizer: ${result.messageRandomizer!.length} bytes');
+        debugPrint('   MessageRandomizer (first 16 bytes hex): ${result.messageRandomizer!.take(16).map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
+        debugPrint('   MessageRandomizer (last 16 bytes hex): ${result.messageRandomizer!.skip(result.messageRandomizer!.length - 16).map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
+      } else {
+        debugPrint('   ❌ MessageRandomizer: NULL - This will cause vote verification to fail!');
+        debugPrint('   🚨 CRITICAL: blind_rsa_signatures library did not generate messageRandomizer');
+        debugPrint('   🚨 This is likely a version difference between local and git dependencies');
+      }
+
+      // Additional validation
+      if (result.blindMessage.isEmpty) {
+        debugPrint('❌ WARNING: blindMessage is empty');
+      }
+      if (result.secret.isEmpty) {
+        debugPrint('❌ WARNING: secret is empty');
+      }
+
+      debugPrint('🔍 BlindingResult object type: ${result.runtimeType}');
+      debugPrint('🔍 BlindingResult toString(): $result');
 
       return result;
     } catch (e) {
       debugPrint('❌ Failed to blind nonce: $e');
+      debugPrint('   Exception type: ${e.runtimeType}');
+      debugPrint('   Exception details: $e');
       rethrow;
     }
   }

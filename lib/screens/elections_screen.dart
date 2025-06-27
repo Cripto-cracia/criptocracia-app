@@ -226,6 +226,10 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
       debugPrint('🎁 Starting Gift Wrap listener for voter responses...');
       await nostr.startGiftWrapListener(voterPubHex, voterPrivHex);
       
+      // Start listening to message stream and process with BlindSignatureProcessor
+      debugPrint('🔄 Starting message stream processor...');
+      _startMessageStreamProcessor(nostr, election.id);
+      
       // Send the blind signature request
       await nostr.sendBlindSignatureRequestSafe(
         ecPubKey: AppConfig.ecPublicKey,
@@ -239,5 +243,37 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
     } catch (e) {
       debugPrint('❌ Error requesting blind signature: $e');
     }
+  }
+
+  void _startMessageStreamProcessor(NostrService nostr, String electionId) {
+    // Listen to the message stream from NostrService
+    nostr.messageStream.listen(
+      (message) async {
+        debugPrint('📨 Received message from stream: $message');
+        
+        // Check if this message is for the current election
+        if (message.id == electionId) {
+          debugPrint('🎯 Message matches current election: $electionId');
+          
+          // Process with BlindSignatureProcessor
+          final processor = BlindSignatureProcessor.instance;
+          final success = await processor.processMessage(message);
+          
+          if (success) {
+            debugPrint('✅ Message processed successfully');
+            // Note: Vote token event is automatically emitted by VoterSessionService.saveUnblindedSignature
+          } else {
+            debugPrint('❌ Failed to process message');
+          }
+        } else {
+          debugPrint('🔍 Message for different election: ${message.id} (current: $electionId)');
+        }
+      },
+      onError: (error) {
+        debugPrint('❌ Message stream error: $error');
+      },
+    );
+    
+    debugPrint('✅ Message stream processor started for election: $electionId');
   }
 }

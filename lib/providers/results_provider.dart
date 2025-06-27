@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'dart:convert';
 import '../models/election.dart';
 import '../services/nostr_service.dart';
+import '../services/election_results_service.dart';
 import '../config/app_config.dart';
 
 class ResultsProvider with ChangeNotifier {
   final NostrService _nostrService = NostrService();
+  final ElectionResultsService _resultsService = ElectionResultsService.instance;
   
   Map<int, int> _results = {}; // candidate_id -> vote_count
   bool _isLoading = false;
@@ -14,6 +15,8 @@ class ResultsProvider with ChangeNotifier {
   String? _error;
   DateTime? _lastUpdate;
   StreamSubscription? _resultsSubscription;
+  StreamSubscription? _resultsUpdateSubscription;
+  Timer? _initialLoadTimer;
   
   Map<int, int> get results => _results;
   bool get isLoading => _isLoading;
@@ -33,12 +36,19 @@ class ResultsProvider with ChangeNotifier {
     notifyListeners();
     
     try {
+      // Load existing results from global service first
+      _loadExistingResults(electionId);
+      
+      // Connect to relay
       await _nostrService.connect(AppConfig.relayUrl);
       
-      // Start listening to results
-      final resultsStream = _nostrService.subscribeToResults(electionId);
+      // Start listening to real-time results events for this specific election
+      final resultsStream = _nostrService.subscribeToElectionResults(
+        AppConfig.ecPublicKey, 
+        electionId,
+      );
       _resultsSubscription = resultsStream.listen(
-        _handleResultEvent,
+        (event) => _handleRealResultEvent(event, electionId),
         onError: (error) {
           _error = 'Error listening to results: $error';
           _isListening = false;
@@ -47,9 +57,32 @@ class ResultsProvider with ChangeNotifier {
         },
       );
       
+      // Also listen to global results service updates
+      _resultsUpdateSubscription = _resultsService.resultsUpdateStream.listen(
+        (updatedElectionId) {
+          if (updatedElectionId == electionId) {
+            _loadExistingResults(electionId);
+          }
+        },
+      );
+      
       _isListening = true;
       _isLoading = false;
       notifyListeners();
+      
+      // Start periodic check for initial results loading
+      _startInitialLoadTimer(electionId);
+      
+      // Force emit current state from global service in case we missed initial updates
+      _resultsService.emitCurrentState(electionId);
+      
+      // Add a small delay and force refresh to catch any racing conditions
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (_isListening) {
+          debugPrint('🔄 Forced refresh after connection delay');
+          _loadExistingResults(electionId);
+        }
+      });
       
     } catch (e) {
       _error = 'Failed to start listening to results: $e';
@@ -59,47 +92,88 @@ class ResultsProvider with ChangeNotifier {
     }
   }
   
-  void _handleResultEvent(event) {
+  void _loadExistingResults(String electionId) {
+    final existingResults = _resultsService.getElectionResults(electionId);
+    
+    // Always update results and notify listeners, even if empty
+    _results = Map<int, int>.from(existingResults);
+    _lastUpdate = DateTime.now();
+    
+    if (existingResults.isNotEmpty) {
+      debugPrint('📊 Loaded existing results for $electionId: $_results');
+    } else {
+      debugPrint('📊 No existing results found for $electionId, initializing empty');
+    }
+    
+    // Always notify to ensure UI updates
+    notifyListeners();
+  }
+  
+  void _handleRealResultEvent(event, String electionId) {
     try {
-      final content = jsonDecode(event.content);
+      debugPrint('🎯 Processing real election results event for $electionId');
+      debugPrint('   Event content: ${event.content}');
       
-      if (content['type'] == 'vote_count' || content['type'] == 'result_update') {
-        final candidateId = content['candidate_id'];
-        final voteCount = content['vote_count'] ?? content['votes'] ?? 0;
-        
-        if (candidateId != null) {
-          final id = candidateId is int ? candidateId : int.tryParse(candidateId.toString()) ?? 0;
-          _results[id] = voteCount;
-          _lastUpdate = DateTime.now();
-          notifyListeners();
-        }
-      } else if (content['type'] == 'election_results') {
-        // Complete results update
-        final results = content['results'] as Map<String, dynamic>?;
-        if (results != null) {
-          _results = results.map((key, value) {
-            final id = int.tryParse(key) ?? 0;
-            return MapEntry(id, value as int);
-          });
-          _lastUpdate = DateTime.now();
-          notifyListeners();
-        }
-      }
+      // The content should be in format: "[[candidateId, votes], [candidateId, votes]]"
+      // This is already parsed and stored by the NostrService in ElectionResultsService
+      // So we just need to reload from the service
+      _loadExistingResults(electionId);
+      
     } catch (e) {
-      // Skip invalid result events
+      debugPrint('❌ Error processing real result event: $e');
     }
   }
   
+  void _startInitialLoadTimer(String electionId) {
+    // Cancel any existing timer
+    _initialLoadTimer?.cancel();
+    
+    // Set up periodic check for the first 5 seconds to catch late-arriving results
+    int checkCount = 0;
+    const maxChecks = 5; // Check every second for 5 seconds
+    
+    _initialLoadTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      checkCount++;
+      
+      // Check if we now have results
+      final currentResults = _resultsService.getElectionResults(electionId);
+      final hasNewResults = currentResults.isNotEmpty;
+      
+      if (hasNewResults) {
+        debugPrint('🎉 Found results on periodic check #$checkCount for $electionId: $currentResults');
+        _loadExistingResults(electionId);
+        timer.cancel();
+        _initialLoadTimer = null;
+        debugPrint('✅ Stopped periodic check early - results found');
+        return;
+      }
+      
+      debugPrint('🔄 Periodic check #$checkCount for election $electionId - no results yet');
+      
+      // Stop after max checks
+      if (checkCount >= maxChecks) {
+        timer.cancel();
+        _initialLoadTimer = null;
+        debugPrint('✅ Stopped periodic check after $checkCount attempts - no results found');
+      }
+    });
+  }
+
   void stopListening() {
     _resultsSubscription?.cancel();
     _resultsSubscription = null;
+    _resultsUpdateSubscription?.cancel();
+    _resultsUpdateSubscription = null;
+    _initialLoadTimer?.cancel();
+    _initialLoadTimer = null;
     _isListening = false;
     notifyListeners();
   }
   
   Future<void> refreshResults(String electionId) async {
     if (_isListening) {
-      // Just trigger a reload by stopping and starting
+      // Just reload from service and trigger a new subscription
+      _loadExistingResults(electionId);
       stopListening();
       await Future.delayed(const Duration(milliseconds: 100));
       await startListening(electionId);
@@ -143,6 +217,7 @@ class ResultsProvider with ChangeNotifier {
   @override
   void dispose() {
     stopListening();
+    _initialLoadTimer?.cancel();
     _nostrService.disconnect();
     super.dispose();
   }

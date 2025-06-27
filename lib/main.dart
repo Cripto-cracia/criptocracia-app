@@ -9,7 +9,78 @@ import 'screens/results_screen.dart';
 import 'screens/account_screen.dart';
 import 'services/nostr_key_manager.dart';
 import 'services/secure_storage_service.dart';
+import 'services/nostr_service.dart';
+import 'services/crypto_service.dart';
 import 'generated/app_localizations.dart';
+import 'package:blind_rsa_signatures/blind_rsa_signatures.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+
+/// DEBUG: Test function to check messageRandomizer concatenation order difference
+Future<void> _testMessageRandomizer() async {
+  try {
+    debugPrint('🧪 === TESTING CONCATENATION ORDER DIFFERENCE ===');
+    
+    debugPrint('🔑 Generating test RSA key pair...');
+    final keyPair = await KeyPair.generate(null);
+    final ecPublicKey = keyPair.publicKey;
+    final ecSecretKey = keyPair.secretKey;
+    
+    // Test the same message and randomizer with both versions
+    final testMessage = Uint8List.fromList('test_message'.codeUnits);
+    final hashedMessage = CryptoService.hashNonce(testMessage);
+    
+    debugPrint('🔧 Testing with git dependency (current)...');
+    final result = CryptoService.blindNonce(hashedMessage, ecPublicKey);
+    
+    debugPrint('📊 GIT VERSION RESULT:');
+    debugPrint('   MessageRandomizer: ${result.messageRandomizer != null ? "✅ PRESENT (${result.messageRandomizer!.length} bytes)" : "❌ NULL"}');
+    
+    if (result.messageRandomizer != null) {
+      debugPrint('   Randomizer (hex): ${result.messageRandomizer!.take(16).map((b) => b.toRadixString(16).padLeft(2, '0')).join()}...');
+      
+      // Test complete protocol
+      debugPrint('🔧 Testing complete protocol with git version...');
+      
+      // EC signs the blinded message
+      final blindSignature = ecSecretKey.blindSign(null, result.blindMessage, Options.defaultOptions);
+      
+      // Voter unblinds
+      final unblindedSignature = ecPublicKey.finalize(
+        blindSignature,
+        result.secret,
+        result.messageRandomizer,
+        hashedMessage,
+        Options.defaultOptions,
+      );
+      
+      // Test verification
+      final isValid = unblindedSignature.verify(
+        ecPublicKey,
+        result.messageRandomizer,
+        hashedMessage,
+        Options.defaultOptions,
+      );
+      
+      debugPrint('   ✅ Complete protocol result: $isValid');
+      
+      if (isValid) {
+        debugPrint('🎯 CONCLUSION: Git dependency works fine!');
+        debugPrint('🤔 The issue must be elsewhere - possibly:');
+        debugPrint('   1. Different randomizer concatenation order expectation in Rust EC');
+        debugPrint('   2. Version mismatch between what EC expects vs what library generates');
+        debugPrint('   3. API differences in method parameters or behavior');
+      } else {
+        debugPrint('❌ Git version has verification issues');
+      }
+    }
+    
+    debugPrint('🧪 === END CONCATENATION ORDER TEST ===');
+  } catch (e) {
+    debugPrint('❌ Error in concatenation order test: $e');
+    debugPrint('   Stack trace: ${StackTrace.current}');
+  }
+}
 
 void main(List<String> args) async {
   // Ensure Flutter bindings are initialized
@@ -24,6 +95,9 @@ void main(List<String> args) async {
     
     // Initialize Nostr keys if needed
     await NostrKeyManager.initializeKeysIfNeeded();
+    
+    // DEBUG: Test messageRandomizer with git dependency
+    await _testMessageRandomizer();
   } catch (e) {
     debugPrint('❌ Critical initialization error: $e');
     // Show a simple error app
@@ -104,6 +178,8 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     // Initialize Nostr keys on first launch
     _initializeKeys();
+    // Start global election results subscription
+    _startGlobalElectionResultsSubscription();
   }
 
   Future<void> _initializeKeys() async {
@@ -111,6 +187,52 @@ class _MainScreenState extends State<MainScreen> {
       await NostrKeyManager.initializeKeysIfNeeded();
     } catch (e) {
       debugPrint('Error initializing Nostr keys: $e');
+    }
+  }
+
+  Future<void> _startGlobalElectionResultsSubscription() async {
+    try {
+      debugPrint('🚀 Starting global election results subscription...');
+      
+      final nostrService = NostrService.instance;
+      
+      // Connect to the relay
+      await nostrService.connect(AppConfig.relayUrl);
+      
+      // Subscribe to ALL election results events from EC
+      final electionResultsStream = nostrService.subscribeToAllElectionResults(AppConfig.ecPublicKey);
+      
+      // Listen to the stream to store all election results globally
+      electionResultsStream.listen(
+        (event) {
+          debugPrint('🎯 GLOBAL: Election results received in MainScreen: ${event.id}');
+          
+          // Extract election ID from d tag
+          final dTag = event.tags.firstWhere(
+            (tag) => tag.length >= 2 && tag[0] == 'd',
+            orElse: () => ['d', 'unknown'],
+          );
+          final electionId = dTag.length >= 2 ? dTag[1] : 'unknown';
+          
+          debugPrint('   Election ID: $electionId');
+          debugPrint('   Kind: ${event.kind}');
+          debugPrint('   Content: ${event.content}');
+          debugPrint('   Results automatically stored in global service');
+        },
+        onError: (error) {
+          debugPrint('❌ GLOBAL: Error in election results stream: $error');
+        },
+        onDone: () {
+          debugPrint('🔚 GLOBAL: Election results stream closed');
+        },
+      );
+      
+      debugPrint('✅ Global election results subscription started successfully');
+      debugPrint('   Listening for ALL kind 35001 events from: ${AppConfig.ecPublicKey}');
+      debugPrint('   Results will be stored globally for all elections');
+      
+    } catch (e) {
+      debugPrint('❌ Failed to start global election results subscription: $e');
     }
   }
 

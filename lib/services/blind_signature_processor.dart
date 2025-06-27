@@ -233,6 +233,61 @@ class BlindSignatureProcessor {
     }
   }
 
+  /// Process error message from Election Coordinator (kind=3)
+  Future<void> processErrorMessage(Message message) async {
+    if (!message.isErrorMessage) {
+      debugPrint('❌ Message is not an error message, kind: ${message.kind}');
+      return;
+    }
+
+    try {
+      debugPrint('🚨 Processing error message from EC...');
+      debugPrint('   Election ID: ${message.id}');
+
+      final errorContent = message.errorContent;
+      if (errorContent == null || errorContent.isEmpty) {
+        debugPrint('❌ Error message has no content');
+        return;
+      }
+
+      debugPrint('   Error content: $errorContent');
+
+      // Categorize the error based on content
+      String errorType = 'Unknown Error';
+      String userMessage = errorContent;
+
+      if (errorContent.contains('unauthorized-voter')) {
+        errorType = 'Unauthorized Voter';
+        userMessage =
+            'You are not authorized to vote in this election. Please contact the election administrator.';
+      } else if (errorContent.contains('nonce-hash-already-issued')) {
+        errorType = 'Token Already Issued';
+        userMessage =
+            'A vote token has already been issued for this election. You cannot request another token.';
+      } else if (errorContent.contains('election-not-found')) {
+        errorType = 'Election Not Found';
+        userMessage = 'The requested election was not found.';
+      } else if (errorContent.contains('election-closed')) {
+        errorType = 'Election Closed';
+        userMessage = 'This election is no longer accepting votes.';
+      } else {
+        // Use the raw error content for unknown errors
+        userMessage = errorContent;
+      }
+
+      debugPrint('🔍 Error analysis:');
+      debugPrint('   Type: $errorType');
+      debugPrint('   User message: $userMessage');
+
+      // Emit error event through VoterSessionService for UI to handle
+      VoterSessionService.emitTokenError(message.id, errorType, userMessage);
+
+      debugPrint('✅ Error message processed and emitted to UI');
+    } catch (e) {
+      debugPrint('❌ Error processing error message: $e');
+    }
+  }
+
   /// Process any message based on its kind
   Future<bool> processMessage(Message message) async {
     debugPrint('📨 Processing message: $message');
@@ -243,6 +298,9 @@ class BlindSignatureProcessor {
       case 2:
         await processVoteResponse(message);
         return true;
+      case 3:
+        await processErrorMessage(message);
+        return true; // Error processed successfully
       default:
         debugPrint('❌ Unknown message kind: ${message.kind}');
         return false;

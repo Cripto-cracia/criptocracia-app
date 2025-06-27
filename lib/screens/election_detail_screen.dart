@@ -26,6 +26,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
   bool _isRequestingToken = false;
   StreamSubscription<VoteTokenEvent>? _voteTokenSubscription;
   Election? _currentElection; // Track current election state
+  Timer? _tokenRequestTimeout; // Timeout for token requests
 
   @override
   void initState() {
@@ -40,6 +41,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
   @override
   void dispose() {
     _voteTokenSubscription?.cancel();
+    _tokenRequestTimeout?.cancel();
     super.dispose();
   }
 
@@ -59,7 +61,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
       final session = await VoterSessionService.getCompleteSession();
       final hasToken =
           session != null &&
-          session['blindSignature'] != null &&
+          session['unblindedSignature'] != null &&
           session['electionId'] == widget.election.id;
 
       // Check if we have an initial session (which means token request was started)
@@ -75,6 +77,11 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
         _isRequestingToken = isRequestingForThisElection;
       });
 
+      // Start timeout if we're requesting a token
+      if (_isRequestingToken) {
+        _startTokenRequestTimeout();
+      }
+
       debugPrint('🎫 Vote token available: $_hasVoteToken');
       debugPrint('🔄 Requesting token: $_isRequestingToken');
       _debugCurrentState();
@@ -87,37 +94,109 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
     }
   }
 
+  void _startTokenRequestTimeout() {
+    // Cancel any existing timeout
+    _tokenRequestTimeout?.cancel();
+    
+    // Start a 30-second timeout for token requests
+    _tokenRequestTimeout = Timer(const Duration(seconds: 30), () {
+      if (mounted && _isRequestingToken) {
+        debugPrint('⏰ Token request timeout reached');
+        
+        setState(() {
+          _isRequestingToken = false;
+          _hasVoteToken = false;
+        });
+        
+        // Show timeout message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('⏰ Token request timeout. The Election Coordinator may be unavailable.'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 6),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                // Navigate back to elections screen to retry
+                Navigator.of(context).pop();
+              },
+            ),
+          ),
+        );
+      }
+    });
+    
+    debugPrint('⏰ Started 30-second timeout for token request');
+  }
+
   void _startVoteTokenListener() {
     _voteTokenSubscription = VoterSessionService.voteTokenStream.listen(
       (event) {
         debugPrint('🔔 Received vote token event: $event');
 
         // Only process events for this election
-        if (event.electionId == widget.election.id && event.isAvailable) {
-          debugPrint('✅ Vote token now available for this election!');
-          debugPrint(
-            '🔍 Before setState - _hasVoteToken: $_hasVoteToken, _isRequestingToken: $_isRequestingToken',
-          );
-
-          if (mounted) {
-            setState(() {
-              _hasVoteToken = true;
-              _isRequestingToken = false;
-            });
-
+        if (event.electionId == widget.election.id) {
+          // Cancel timeout since we received a response
+          _tokenRequestTimeout?.cancel();
+          
+          if (event.isSuccess) {
+            // Handle successful token receipt
+            debugPrint('✅ Vote token now available for this election!');
             debugPrint(
-              '🔍 After setState - _hasVoteToken: $_hasVoteToken, _isRequestingToken: $_isRequestingToken',
+              '🔍 Before setState - _hasVoteToken: $_hasVoteToken, _isRequestingToken: $_isRequestingToken',
             );
-            _debugCurrentState();
 
-            // Show success feedback
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('✅ Vote token received! You can now vote.'),
-                backgroundColor: Colors.green,
-                duration: const Duration(seconds: 3),
-              ),
-            );
+            if (mounted) {
+              setState(() {
+                _hasVoteToken = true;
+                _isRequestingToken = false;
+              });
+
+              debugPrint(
+                '🔍 After setState - _hasVoteToken: $_hasVoteToken, _isRequestingToken: $_isRequestingToken',
+              );
+              _debugCurrentState();
+
+              // Show success feedback
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('✅ Vote token received! You can now vote.'),
+                  backgroundColor: Colors.green,
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            }
+          } else if (event.isError) {
+            // Handle error from EC
+            debugPrint('🚨 Vote token error received: ${event.errorType}');
+            debugPrint('   Error message: ${event.errorMessage}');
+
+            if (mounted) {
+              setState(() {
+                _hasVoteToken = false;
+                _isRequestingToken = false; // Stop showing "requesting" state
+              });
+
+              _debugCurrentState();
+
+              // Show error feedback with specific message
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('❌ ${event.errorType}: ${event.errorMessage}'),
+                  backgroundColor: Colors.red,
+                  duration: const Duration(seconds: 8), // Longer duration for errors
+                  action: SnackBarAction(
+                    label: 'Dismiss',
+                    textColor: Colors.white,
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    },
+                  ),
+                ),
+              );
+            }
           }
         }
       },

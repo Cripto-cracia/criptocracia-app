@@ -78,7 +78,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: "679e020d14c4985b291e21ae89f2ec73a7010fc7"
+      resolved-ref: "9c2eb6b1420b73f248e175c03ef84b97af2b87e9"
       url: "https://github.com/grunch/blind_rsa_signatures_dart.git"
     source: git
     version: "0.1.0"

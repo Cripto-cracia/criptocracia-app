@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:dart_nostr/dart_nostr.dart';
 import 'package:nip59/nip59.dart';
 import '../models/message.dart';
+import 'election_results_service.dart';
 
 class NostrService {
   static NostrService? _instance;
@@ -842,6 +844,127 @@ class NostrService {
       await subscription?.cancel();
       debugPrint('🔚 Blind signature wait completed');
     }
+  }
+
+  /// Subscribe to all election results events from EC public key (kind 35001)
+  /// This will store all election results globally and show real-time logs
+  Stream<NostrEvent> subscribeToAllElectionResults(String ecPublicKey) {
+    if (!_connected) {
+      throw Exception('Not connected to relay');
+    }
+
+    debugPrint('📡 Subscribing to ALL election results from EC pubkey: $ecPublicKey');
+    debugPrint('   Looking for: kind=35001 (any d tag = election results)');
+
+    // Create filter for ALL kind 35001 events from the EC public key
+    final filter = NostrFilter(
+      kinds: [35001], // NIP-33 Parameterized Replaceable Events
+      authors: [ecPublicKey], // Only from this specific EC public key
+    );
+
+    final request = NostrRequest(filters: [filter]);
+
+    debugPrint('🔍 Starting election results subscription...');
+
+    final nostrStream = _nostr.services.relays.startEventsSubscription(
+      request: request,
+    );
+
+    return nostrStream.stream
+        .map((dartNostrEvent) {
+          debugPrint('🎯 ELECTION RESULTS EVENT RECEIVED:');
+          debugPrint('   ID: ${dartNostrEvent.id}');
+          debugPrint('   Kind: ${dartNostrEvent.kind}');
+          debugPrint('   Author: ${dartNostrEvent.pubkey}');
+          debugPrint('   Created: ${dartNostrEvent.createdAt}');
+          debugPrint('   Content: ${dartNostrEvent.content}');
+          debugPrint('   Tags: ${dartNostrEvent.tags}');
+          debugPrint('   ---');
+          
+          return dartNostrEvent;
+        })
+        .where((dartNostrEvent) {
+          // Verify the event matches our criteria
+          final isCorrectKind = dartNostrEvent.kind == 35001;
+          final isCorrectAuthor = dartNostrEvent.pubkey == ecPublicKey;
+          final hasDTag = dartNostrEvent.tags?.any(
+            (tag) => tag.length >= 2 && tag[0] == 'd',
+          ) ?? false;
+          
+          debugPrint('🔍 Event filter check:');
+          debugPrint('   Correct kind (35001): $isCorrectKind');
+          debugPrint('   Correct author: $isCorrectAuthor');
+          debugPrint('   Has d tag: $hasDTag');
+          
+          final passes = isCorrectKind && isCorrectAuthor && hasDTag;
+          debugPrint('   Filter result: ${passes ? "✅ PASSES" : "❌ REJECTED"}');
+          
+          return passes;
+        })
+        .map((dartNostrEvent) {
+          // Extract election ID from d tag and store results
+          final dTag = dartNostrEvent.tags?.firstWhere(
+            (tag) => tag.length >= 2 && tag[0] == 'd',
+            orElse: () => ['d', 'unknown'],
+          );
+          final electionId = dTag != null && dTag.length >= 2 ? dTag[1] : 'unknown';
+          
+          debugPrint('📊 Processing election results for: $electionId');
+          
+          // Store results in global service
+          if (dartNostrEvent.content != null && dartNostrEvent.content!.isNotEmpty) {
+            ElectionResultsService.instance.updateResultsFromEventContent(
+              electionId, 
+              dartNostrEvent.content!,
+            );
+          }
+          
+          debugPrint('✅ ELECTION RESULTS PROCESSED: ${dartNostrEvent.id} for election: $electionId');
+          return NostrEvent(
+            id: dartNostrEvent.id ?? '',
+            pubkey: dartNostrEvent.pubkey,
+            createdAt:
+                (dartNostrEvent.createdAt?.millisecondsSinceEpoch ??
+                    DateTime.now().millisecondsSinceEpoch) ~/
+                1000,
+            kind: dartNostrEvent.kind ?? 0,
+            tags:
+                dartNostrEvent.tags
+                    ?.map((tag) => tag.map((e) => e.toString()).toList())
+                    .toList() ??
+                [],
+            content: dartNostrEvent.content ?? '',
+            sig: dartNostrEvent.sig ?? '',
+          );
+        })
+        .handleError((error) {
+          debugPrint('🚨 Election results stream error: $error');
+        })
+        .asBroadcastStream();
+  }
+
+  /// Subscribe to election results for a specific election ID
+  /// Filters global results stream for specific election
+  Stream<NostrEvent> subscribeToElectionResults(String ecPublicKey, String electionId) {
+    debugPrint('📊 Subscribing to results for specific election: $electionId');
+    
+    return subscribeToAllElectionResults(ecPublicKey)
+        .where((event) {
+          // Filter for specific election ID from d tag
+          final dTag = event.tags.firstWhere(
+            (tag) => tag.length >= 2 && tag[0] == 'd',
+            orElse: () => ['d', ''],
+          );
+          final eventElectionId = dTag.length >= 2 ? dTag[1] : '';
+          
+          final matches = eventElectionId == electionId;
+          debugPrint('🔍 Election filter: $eventElectionId == $electionId ? $matches');
+          
+          return matches;
+        })
+        .handleError((error) {
+          debugPrint('🚨 Specific election results stream error: $error');
+        });
   }
 }
 
