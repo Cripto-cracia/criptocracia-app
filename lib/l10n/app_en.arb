@@ -511,5 +511,9 @@
         "type": "String"
       }
     }
+  },
+  "viewResultsButton": "View Results",
+  "@viewResultsButton": {
+    "description": "Button to view election results"
   }
 }

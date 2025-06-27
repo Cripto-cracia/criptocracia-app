@@ -438,14 +438,17 @@ class NostrService {
       debugPrint('🗳️ Sending vote message via Gift Wrap...');
       debugPrint('   Message: $messageJson');
       debugPrint('   EC pubkey: $ecPubKey');
-      debugPrint('   Using anonymous key: ${randomPubKeyHex.substring(0, 16)}...');
+      debugPrint(
+        '   Using anonymous key: ${randomPubKeyHex.substring(0, 16)}...',
+      );
 
       // Create NIP-59 gift wrap using anonymous keys
       final giftWrapEvent = await Nip59.createNIP59Event(
         messageJson,
         ecPubKey,
         randomPrivKeyHex,
-        generateKeyPairFromPrivateKey: _nostr.services.keys.generateKeyPairFromExistingPrivateKey,
+        generateKeyPairFromPrivateKey:
+            _nostr.services.keys.generateKeyPairFromExistingPrivateKey,
         generateKeyPair: _nostr.services.keys.generateKeyPair,
         isValidPrivateKey: _nostr.services.keys.isValidPrivateKey,
       );
@@ -470,8 +473,9 @@ class NostrService {
       await Future.delayed(const Duration(milliseconds: 500));
 
       debugPrint('✅ Vote Gift Wrap sent successfully: ${giftWrapEvent.id}');
-      debugPrint('🔒 Vote sent anonymously - cannot be traced to voter identity');
-
+      debugPrint(
+        '🔒 Vote sent anonymously - cannot be traced to voter identity',
+      );
     } catch (e) {
       debugPrint('❌ Error sending vote message: $e');
       rethrow;
@@ -571,9 +575,7 @@ class NostrService {
     // Results are published as kind 35001 addressable events tagged with `d`
     final filter = NostrFilter(
       kinds: [35001],
-      additionalFilters: {
-        '#d': [electionId],
-      },
+      additionalFilters: {'#d': electionId},
     );
 
     debugPrint('📡 Starting results subscription...');
@@ -591,14 +593,14 @@ class NostrService {
         })
         .where((event) {
           final hasContent = event.content?.isNotEmpty ?? false;
-          final hasDTag = event.tags?.any(
-                (tag) => tag.length >= 2 && tag[0] == 'd' && tag[1] == electionId,
+          final hasDTag =
+              event.tags?.any(
+                (tag) =>
+                    tag.length >= 2 && tag[0] == 'd' && tag[1] == electionId,
               ) ??
               false;
 
-          debugPrint(
-            '🔍 Filtering result: content=$hasContent, dTag=$hasDTag',
-          );
+          debugPrint('🔍 Filtering result: content=$hasContent, dTag=$hasDTag');
           return hasContent && hasDTag;
         })
         .map((dartNostrEvent) {
@@ -608,10 +610,11 @@ class NostrService {
             pubkey: dartNostrEvent.pubkey,
             createdAt:
                 (dartNostrEvent.createdAt?.millisecondsSinceEpoch ??
-                        DateTime.now().millisecondsSinceEpoch) ~/
-                    1000,
+                    DateTime.now().millisecondsSinceEpoch) ~/
+                1000,
             kind: dartNostrEvent.kind ?? 0,
-            tags: dartNostrEvent.tags
+            tags:
+                dartNostrEvent.tags
                     ?.map((tag) => tag.map((e) => e.toString()).toList())
                     .toList() ??
                 [],

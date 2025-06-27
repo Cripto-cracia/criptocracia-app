@@ -114,5 +114,6 @@
   "vote": "Votar",
   "votesLabel": "votos",
   "voteRatioDisplay": "{votes} / {total}",
-  "errorWithMessage": "Error: {message}"
+  "errorWithMessage": "Error: {message}",
+  "viewResultsButton": "Ver Resultados"
 }

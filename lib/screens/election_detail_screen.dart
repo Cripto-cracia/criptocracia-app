@@ -9,6 +9,7 @@ import '../services/selected_election_service.dart';
 import '../services/vote_service.dart';
 import '../services/voter_session_service.dart';
 import '../providers/election_provider.dart';
+import './results_screen.dart';
 
 class ElectionDetailScreen extends StatefulWidget {
   final Election election;
@@ -292,6 +293,23 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
                     ),
                   ],
                 ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ResultsScreen(election: election),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.bar_chart),
+                label: Text(AppLocalizations.of(context).viewResultsButton),
               ),
             ),
 

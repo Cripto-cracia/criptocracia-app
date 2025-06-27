@@ -15,11 +15,14 @@ class ResultsScreen extends StatefulWidget {
 }
 
 class _ResultsScreenState extends State<ResultsScreen> {
+  late final ResultsProvider _resultsProvider;
+
   @override
   void initState() {
     super.initState();
+    _resultsProvider = context.read<ResultsProvider>();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ResultsProvider>().startListening(widget.election.id);
+      _resultsProvider.startListening(widget.election.id);
     });
   }
 
@@ -252,6 +255,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         ),
                       ),
                     ),
+
+                  const SizedBox(height: 20),
+
+                  // Raw Event Log
+                  _buildExplorerLog(context, provider.explorerLog),
                 ],
               ),
             ),
@@ -261,55 +269,52 @@ class _ResultsScreenState extends State<ResultsScreen> {
     );
   }
 
-  Widget _buildSummaryItem(
-    BuildContext context,
-    String label,
-    String value,
-    IconData icon,
-  ) {
+  Widget _buildExplorerLog(BuildContext context, List<String> logs) {
+    if (logs.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: Theme.of(context).colorScheme.primary, size: 24),
-        const SizedBox(height: 4),
         Text(
-          value,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.primary,
-          ),
+          'Nostr Event Explorer',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
         ),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+        const SizedBox(height: 8),
+        Container(
+          height: 150,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: ListView.builder(
+            itemCount: logs.length,
+            itemBuilder: (context, index) {
+              final log = logs[index];
+              Color color = Colors.black;
+              if (log.startsWith('[SUCCESS]')) {
+                color = Colors.green;
+              } else if (log.startsWith('[ERROR]') || log.startsWith('[FATAL]')) {
+                color = Colors.red;
+              } else if (log.startsWith('[INFO]')) {
+                color = Colors.blue;
+              }
+              return Text(
+                log,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 10,
+                  color: color,
+                ),
+              );
+            },
           ),
         ),
       ],
     );
   }
-
-  String _formatLastUpdate(DateTime lastUpdate) {
-    final now = DateTime.now();
-    final difference = now.difference(lastUpdate);
-
-    if (difference.inSeconds < 60) {
-      return AppLocalizations.of(context).timeFormatJustNow;
-    } else if (difference.inMinutes < 60) {
-      return AppLocalizations.of(
-        context,
-      ).timeFormatMinutesAgo(difference.inMinutes);
-    } else if (difference.inHours < 24) {
-      return AppLocalizations.of(
-        context,
-      ).timeFormatHoursAgo(difference.inHours);
-    } else {
-      return '${lastUpdate.day}/${lastUpdate.month} ${lastUpdate.hour}:${lastUpdate.minute.toString().padLeft(2, '0')}';
-    }
-  }
-
-  @override
-  void dispose() {
-    context.read<ResultsProvider>().stopListening();
-    super.dispose();
-  }
-}
