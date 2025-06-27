@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 /// Message model for Nostr communication in Criptocracia voting protocol
 /// Represents the JSON payload sent/received in Gift Wrap events

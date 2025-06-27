@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:dart_nostr/dart_nostr.dart';
 import 'package:nip59/nip59.dart';

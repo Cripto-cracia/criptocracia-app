@@ -13,7 +13,6 @@ import 'services/nostr_service.dart';
 import 'services/crypto_service.dart';
 import 'generated/app_localizations.dart';
 import 'package:blind_rsa_signatures/blind_rsa_signatures.dart';
-import 'dart:convert';
 import 'dart:typed_data';
 
 /// DEBUG: Test function to check messageRandomizer concatenation order difference
