@@ -245,9 +245,25 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
     }
   }
 
+class _ElectionsScreenState extends State<ElectionsScreen> {
+  StreamSubscription? _messageSubscription;
+  StreamSubscription? _errorSubscription;
+  StreamSubscription? _processorSubscription;
+
+  @override
+  void dispose() {
+    _messageSubscription?.cancel();
+    _errorSubscription?.cancel();
+    _processorSubscription?.cancel();
+    super.dispose();
+  }
+
   void _startMessageStreamProcessor(NostrService nostr, String electionId) {
+    // Cancel any existing processor subscription
+    _processorSubscription?.cancel();
+
     // Listen to the message stream from NostrService
-    nostr.messageStream.listen(
+    _processorSubscription = nostr.messageStream.listen(
       (message) async {
         debugPrint('📨 Received message from stream: $message');
         
@@ -276,4 +292,5 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
     
     debugPrint('✅ Message stream processor started for election: $electionId');
   }
+}
 }
