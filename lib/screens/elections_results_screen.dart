@@ -117,6 +117,23 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
+              // Status badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _getStatusColor(result.electionStatus),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  _getStatusDisplayText(result.electionStatus),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
               Text(
                 'Election ID: ${result.electionId}',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -434,7 +451,7 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Candidate ID $candidateId',
+                        result.getCandidateDisplayName(candidateId),
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -467,7 +484,7 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          'Leading',
+                          result.isFinished ? 'Winner' : 'Leading',
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.onPrimaryContainer,
                             fontSize: 12,
@@ -497,6 +514,34 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
       return '${difference.inHours}h ago';
     } else {
       return '${time.day}/${time.month} ${time.hour}:${time.minute.toString().padLeft(2, '0')}';
+    }
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'finished':
+        return Colors.green;
+      case 'in-progress':
+        return Colors.blue;
+      case 'canceled':
+        return Colors.red;
+      case 'open':
+      default:
+        return Colors.orange;
+    }
+  }
+
+  String _getStatusDisplayText(String status) {
+    switch (status.toLowerCase()) {
+      case 'in-progress':
+        return 'In Progress';
+      case 'finished':
+        return 'Finished';
+      case 'canceled':
+        return 'Canceled';
+      case 'open':
+      default:
+        return 'Open';
     }
   }
 }

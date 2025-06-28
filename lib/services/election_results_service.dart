@@ -81,6 +81,8 @@ class ElectionResultsService {
         electionName: electionName,
         candidateVotes: Map.from(candidateVotes),
         lastUpdate: _lastUpdateTimes[electionId] ?? DateTime.now(),
+        electionStatus: metadata?.status ?? 'open',
+        candidates: metadata?.candidates,
       ));
     }
     
