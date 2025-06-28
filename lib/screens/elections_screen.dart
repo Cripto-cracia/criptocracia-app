@@ -183,9 +183,43 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
     );
   }
 
+  /// Check if we already have a valid vote token for the given election
+  Future<bool> _hasValidTokenForElection(String electionId) async {
+    try {
+      final session = await VoterSessionService.getCompleteSession();
+      if (session == null) {
+        debugPrint('🔍 No session data found');
+        return false;
+      }
+
+      final sessionElectionId = session['electionId'] as String?;
+      final unblindedSignature = session['unblindedSignature'] as Uint8List?;
+
+      final hasValidToken = sessionElectionId == electionId && unblindedSignature != null;
+      
+      debugPrint('🔍 Token check for election $electionId:');
+      debugPrint('   Session election ID: $sessionElectionId');
+      debugPrint('   Has unblinded signature: ${unblindedSignature != null}');
+      debugPrint('   Valid token exists: $hasValidToken');
+
+      return hasValidToken;
+    } catch (e) {
+      debugPrint('❌ Error checking token availability: $e');
+      return false;
+    }
+  }
+
   Future<void> _navigateToElectionDetail(Election election) async {
     if (election.status.toLowerCase() == 'open') {
-      await _requestBlindSignature(election);
+      // Check if we already have a valid token for this election
+      final hasToken = await _hasValidTokenForElection(election.id);
+      
+      if (hasToken) {
+        debugPrint('✅ Valid token already exists for election ${election.id}, skipping request');
+      } else {
+        debugPrint('🔄 No valid token found for election ${election.id}, requesting new token');
+        await _requestBlindSignature(election);
+      }
     }
 
     if (!mounted) return;
