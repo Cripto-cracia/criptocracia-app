@@ -47,6 +47,38 @@ class ElectionResultsService {
     }
   }
 
-  // … rest of class …
-}
+  /// Get current results for a specific election
+  Map<int, int>? getElectionResults(String electionId) {
+    return _electionResults[electionId];
+  }
+
+  /// Emit current state for all elections
+  void emitCurrentState() {
+    for (final electionId in _electionResults.keys) {
+      _resultsUpdateController.add(electionId);
+    }
+  }
+
+  /// Update election results from Nostr event content
+  void updateResultsFromEventContent(String electionId, String content) {
+    try {
+      final results = _parseJsonSafely(content);
+      if (results is List) {
+        final Map<int, int> candidateVotes = {};
+        for (final result in results) {
+          if (result is Map && result.containsKey('candidate_id') && result.containsKey('vote_count')) {
+            candidateVotes[result['candidate_id']] = result['vote_count'];
+          }
+        }
+        _electionResults[electionId] = candidateVotes;
+        _resultsUpdateController.add(electionId);
+      }
+    } catch (e) {
+      debugPrint('❌ Error updating results from event content: $e');
+    }
+  }
+
+  void dispose() {
+    _resultsUpdateController.close();
+  }
 }

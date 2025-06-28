@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -10,10 +11,7 @@ import 'screens/account_screen.dart';
 import 'services/nostr_key_manager.dart';
 import 'services/secure_storage_service.dart';
 import 'services/nostr_service.dart';
-import 'services/crypto_service.dart';
 import 'generated/app_localizations.dart';
-import 'package:blind_rsa_signatures/blind_rsa_signatures.dart';
-import 'dart:typed_data';
 
 void main(List<String> args) async {
   // Ensure Flutter bindings are initialized

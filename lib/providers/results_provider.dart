@@ -74,7 +74,7 @@ class ResultsProvider with ChangeNotifier {
       _startInitialLoadTimer(electionId);
       
       // Force emit current state from global service in case we missed initial updates
-      _resultsService.emitCurrentState(electionId);
+      _resultsService.emitCurrentState();
       
       // Add a small delay and force refresh to catch any racing conditions
       Future.delayed(const Duration(milliseconds: 500), () {
@@ -96,10 +96,10 @@ class ResultsProvider with ChangeNotifier {
     final existingResults = _resultsService.getElectionResults(electionId);
     
     // Always update results and notify listeners, even if empty
-    _results = Map<int, int>.from(existingResults);
+    _results = existingResults != null ? Map<int, int>.from(existingResults) : <int, int>{};
     _lastUpdate = DateTime.now();
     
-    if (existingResults.isNotEmpty) {
+    if (existingResults?.isNotEmpty ?? false) {
       debugPrint('📊 Loaded existing results for $electionId: $_results');
     } else {
       debugPrint('📊 No existing results found for $electionId, initializing empty');
@@ -137,7 +137,7 @@ class ResultsProvider with ChangeNotifier {
       
       // Check if we now have results
       final currentResults = _resultsService.getElectionResults(electionId);
-      final hasNewResults = currentResults.isNotEmpty;
+      final hasNewResults = currentResults?.isNotEmpty ?? false;
       
       if (hasNewResults) {
         debugPrint('🎉 Found results on periodic check #$checkCount for $electionId: $currentResults');

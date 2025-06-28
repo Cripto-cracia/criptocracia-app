@@ -173,6 +173,11 @@ class NostrService {
 
       _giftWrapSubscription = giftWrapStream.stream.listen(
         (dartNostrEvent) async {
+          debugPrint('🎁 Received Gift Wrap event from relay');
+          debugPrint('   Event ID: ${dartNostrEvent.id}');
+          debugPrint('   Kind: ${dartNostrEvent.kind}');
+          debugPrint('   Pubkey: ${dartNostrEvent.pubkey}');
+          debugPrint('   Created at: ${dartNostrEvent.createdAt}');
           await _handleGiftWrapEvent(dartNostrEvent, voterPrivKeyHex);
         },
         onError: (error) {
@@ -252,9 +257,17 @@ class NostrService {
       }
 
       debugPrint('✅ Message parsed successfully: $message');
+      debugPrint('📤 Emitting message through stream controller');
+      debugPrint('   Stream controller is closed: ${_messageController.isClosed}');
+      debugPrint('   Stream has listeners: ${_messageController.hasListener}');
 
       // Emit the message through the stream
-      _messageController.add(message);
+      if (!_messageController.isClosed) {
+        _messageController.add(message);
+        debugPrint('✅ Message emitted to stream successfully');
+      } else {
+        debugPrint('❌ Cannot emit message - stream controller is closed');
+      }
     } catch (e) {
       debugPrint('❌ Error processing Gift Wrap event: $e');
       _errorController.add('Error processing Gift Wrap event: $e');

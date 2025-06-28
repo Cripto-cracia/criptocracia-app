@@ -291,14 +291,22 @@ class BlindSignatureProcessor {
   /// Process any message based on its kind
   Future<bool> processMessage(Message message) async {
     debugPrint('📨 Processing message: $message');
+    debugPrint('   Message kind: ${message.kind}');
+    debugPrint('   Message id: ${message.id}');
+    debugPrint('   Message payload length: ${message.payload.length}');
 
     switch (message.kind) {
       case 1:
-        return await processBlindSignatureResponse(message);
+        debugPrint('🎫 Processing kind=1 (token message)');
+        final result = await processBlindSignatureResponse(message);
+        debugPrint('🎫 Token processing result: $result');
+        return result;
       case 2:
+        debugPrint('🗳️ Processing kind=2 (vote message)');
         await processVoteResponse(message);
         return true;
       case 3:
+        debugPrint('❌ Processing kind=3 (error message)');
         await processErrorMessage(message);
         return true; // Error processed successfully
       default:

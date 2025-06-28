@@ -64,18 +64,30 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
   /// Handle incoming messages from Gift Wrap events
   Future<void> _handleIncomingMessage(Message message) async {
     try {
-      debugPrint('🔄 Processing message in ElectionsScreen: $message');
+      debugPrint('🔄 ElectionsScreen: Processing message: $message');
+      debugPrint('   Kind: ${message.kind}');
+      debugPrint('   Election ID: ${message.id}');
+      debugPrint('   isTokenMessage: ${message.isTokenMessage}');
+      debugPrint('   isVoteMessage: ${message.isVoteMessage}');
+      debugPrint('   isErrorMessage: ${message.isErrorMessage}');
       
       final processor = BlindSignatureProcessor.instance;
       final success = await processor.processMessage(message);
       
-      if (success && message.isTokenMessage) {
-        debugPrint('✅ Blind signature processed successfully for election: ${message.id}');
-        // Note: Success notification will be shown in election detail screen
-        // to avoid duplicate notifications and provide better UX context
+      debugPrint('🔄 ElectionsScreen: Message processing result: $success');
+      
+      if (success) {
+        if (message.isTokenMessage) {
+          debugPrint('✅ Blind signature processed successfully for election: ${message.id}');
+        } else if (message.isErrorMessage) {
+          debugPrint('❌ Error message processed for election: ${message.id}');
+        }
+      } else {
+        debugPrint('❌ Failed to process message for election: ${message.id}');
       }
     } catch (e) {
       debugPrint('❌ Error handling incoming message: $e');
+      debugPrint('❌ Stack trace: ${StackTrace.current}');
     }
   }
 
@@ -226,10 +238,6 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
       debugPrint('🎁 Starting Gift Wrap listener for voter responses...');
       await nostr.startGiftWrapListener(voterPubHex, voterPrivHex);
       
-      // Start listening to message stream and process with BlindSignatureProcessor
-      debugPrint('🔄 Starting message stream processor...');
-      _startMessageStreamProcessor(nostr, election.id);
-      
       // Send the blind signature request
       await nostr.sendBlindSignatureRequestSafe(
         ecPubKey: AppConfig.ecPublicKey,
@@ -245,52 +253,4 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
     }
   }
 
-class _ElectionsScreenState extends State<ElectionsScreen> {
-  StreamSubscription? _messageSubscription;
-  StreamSubscription? _errorSubscription;
-  StreamSubscription? _processorSubscription;
-
-  @override
-  void dispose() {
-    _messageSubscription?.cancel();
-    _errorSubscription?.cancel();
-    _processorSubscription?.cancel();
-    super.dispose();
-  }
-
-  void _startMessageStreamProcessor(NostrService nostr, String electionId) {
-    // Cancel any existing processor subscription
-    _processorSubscription?.cancel();
-
-    // Listen to the message stream from NostrService
-    _processorSubscription = nostr.messageStream.listen(
-      (message) async {
-        debugPrint('📨 Received message from stream: $message');
-        
-        // Check if this message is for the current election
-        if (message.id == electionId) {
-          debugPrint('🎯 Message matches current election: $electionId');
-          
-          // Process with BlindSignatureProcessor
-          final processor = BlindSignatureProcessor.instance;
-          final success = await processor.processMessage(message);
-          
-          if (success) {
-            debugPrint('✅ Message processed successfully');
-            // Note: Vote token event is automatically emitted by VoterSessionService.saveUnblindedSignature
-          } else {
-            debugPrint('❌ Failed to process message');
-          }
-        } else {
-          debugPrint('🔍 Message for different election: ${message.id} (current: $electionId)');
-        }
-      },
-      onError: (error) {
-        debugPrint('❌ Message stream error: $error');
-      },
-    );
-    
-    debugPrint('✅ Message stream processor started for election: $electionId');
-  }
-}
 }
