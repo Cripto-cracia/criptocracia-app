@@ -21,32 +21,16 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeElectionMetadataAsync();
+    _initializeElectionMetadata();
+    _loadResults();
     _startListening();
   }
 
   /// Initialize election metadata from ElectionProvider
-  /// Ensures elections are loaded before showing results
-  Future<void> _initializeElectionMetadataAsync() async {
+  void _initializeElectionMetadata() {
     final electionProvider = context.read<ElectionProvider>();
     debugPrint('🔄 Initializing election metadata from ElectionProvider...');
     debugPrint('   Available elections: ${electionProvider.elections.length}');
-    
-    // If no elections loaded yet, trigger loading
-    if (electionProvider.elections.isEmpty && !electionProvider.isLoading) {
-      debugPrint('📥 No elections loaded, triggering election loading...');
-      await electionProvider.loadElections();
-    }
-    
-    // Wait a bit for elections to load if still loading
-    if (electionProvider.isLoading) {
-      debugPrint('⏳ Waiting for elections to finish loading...');
-      int attempts = 0;
-      while (electionProvider.isLoading && attempts < 50) { // Max 5 seconds
-        await Future.delayed(const Duration(milliseconds: 100));
-        attempts++;
-      }
-    }
     
     // Store metadata for all loaded elections
     for (final election in electionProvider.elections) {
@@ -54,9 +38,6 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
       ElectionResultsService.instance.storeElectionMetadata(election);
     }
     debugPrint('✅ Initialized ${electionProvider.elections.length} election metadata entries');
-    
-    // Now load results
-    _loadResults();
   }
 
   @override
@@ -85,7 +66,8 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
 
   Future<void> _onRefresh() async {
     // Refresh election metadata first, then results
-    await _initializeElectionMetadataAsync();
+    _initializeElectionMetadata();
+    _loadResults();
   }
 
   void _showElectionDetailModal(ElectionResult result) {

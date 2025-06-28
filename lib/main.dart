@@ -111,6 +111,8 @@ class _MainScreenState extends State<MainScreen> {
     _initializeKeys();
     // Start global election results subscription
     _startGlobalElectionResultsSubscription();
+    // Load elections immediately to have metadata available
+    _loadElectionsOnStartup();
   }
 
   @override
@@ -133,6 +135,16 @@ class _MainScreenState extends State<MainScreen> {
     } catch (e) {
       debugPrint('Error initializing Nostr keys: $e');
     }
+  }
+
+  /// Load elections on app startup to ensure metadata is available for results
+  void _loadElectionsOnStartup() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        debugPrint('🚀 Loading elections on app startup for metadata...');
+        context.read<ElectionProvider>().loadElections();
+      }
+    });
   }
 
   Future<void> _startGlobalElectionResultsSubscription() async {
