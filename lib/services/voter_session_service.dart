@@ -257,6 +257,30 @@ class VoterSessionService {
     }
   }
 
+  /// Emit vote token available event for an election
+  static void emitVoteTokenAvailable(String electionId) {
+    debugPrint('🎫 Emitting vote token available for election: $electionId');
+    _voteTokenController.add(VoteTokenEvent(
+      electionId: electionId,
+      isAvailable: true,
+      timestamp: DateTime.now(),
+    ));
+  }
+
+  /// Emit token error event for an election
+  static void emitTokenError(String electionId, String errorType, String errorMessage) {
+    debugPrint('🚨 Emitting token error for election: $electionId');
+    debugPrint('   Error type: $errorType');
+    debugPrint('   Error message: $errorMessage');
+    _voteTokenController.add(VoteTokenEvent(
+      electionId: electionId,
+      isAvailable: false,
+      timestamp: DateTime.now(),
+      errorType: errorType,
+      errorMessage: errorMessage,
+    ));
+  }
+
   /// Dispose of the stream controller (call when app is closing)
   static void dispose() {
     _voteTokenController.close();
@@ -268,15 +292,29 @@ class VoteTokenEvent {
   final String electionId;
   final bool isAvailable;
   final DateTime timestamp;
+  final String? errorType;
+  final String? errorMessage;
 
   VoteTokenEvent({
     required this.electionId,
     required this.isAvailable,
     required this.timestamp,
+    this.errorType,
+    this.errorMessage,
   });
+
+  /// Check if this event represents an error
+  bool get isError => !isAvailable && errorType != null && errorMessage != null;
+
+  /// Check if this event represents success (token available)
+  bool get isSuccess => isAvailable && errorType == null && errorMessage == null;
 
   @override
   String toString() {
-    return 'VoteTokenEvent(electionId: $electionId, isAvailable: $isAvailable, timestamp: $timestamp)';
+    if (isError) {
+      return 'VoteTokenEvent(electionId: $electionId, ERROR: $errorType - $errorMessage, timestamp: $timestamp)';
+    } else {
+      return 'VoteTokenEvent(electionId: $electionId, isAvailable: $isAvailable, timestamp: $timestamp)';
+    }
   }
 }

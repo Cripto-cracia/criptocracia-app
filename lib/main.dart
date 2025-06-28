@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +10,7 @@ import 'screens/results_screen.dart';
 import 'screens/account_screen.dart';
 import 'services/nostr_key_manager.dart';
 import 'services/secure_storage_service.dart';
+import 'services/nostr_service.dart';
 import 'generated/app_localizations.dart';
 
 void main(List<String> args) async {
@@ -24,7 +26,9 @@ void main(List<String> args) async {
     
     // Initialize Nostr keys if needed
     await NostrKeyManager.initializeKeysIfNeeded();
+    
   } catch (e) {
+
     debugPrint('❌ Critical initialization error: $e');
     // Show a simple error app
     runApp(MaterialApp(
@@ -98,12 +102,21 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  StreamSubscription? _electionResultsSubscription;
 
   @override
   void initState() {
     super.initState();
     // Initialize Nostr keys on first launch
     _initializeKeys();
+    // Start global election results subscription
+    _startGlobalElectionResultsSubscription();
+  }
+
+  @override
+  void dispose() {
+    _electionResultsSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _initializeKeys() async {
@@ -111,6 +124,52 @@ class _MainScreenState extends State<MainScreen> {
       await NostrKeyManager.initializeKeysIfNeeded();
     } catch (e) {
       debugPrint('Error initializing Nostr keys: $e');
+    }
+  }
+
+  Future<void> _startGlobalElectionResultsSubscription() async {
+    try {
+      debugPrint('🚀 Starting global election results subscription...');
+      
+      final nostrService = NostrService.instance;
+      
+      // Connect to the relay
+      await nostrService.connect(AppConfig.relayUrl);
+      
+      // Subscribe to ALL election results events from EC
+      final electionResultsStream = nostrService.subscribeToAllElectionResults(AppConfig.ecPublicKey);
+      
+      // Listen to the stream to store all election results globally
+      _electionResultsSubscription = electionResultsStream.listen(
+        (event) {
+          debugPrint('🎯 GLOBAL: Election results received in MainScreen: ${event.id}');
+          
+          // Extract election ID from d tag
+          final dTag = event.tags.firstWhere(
+            (tag) => tag.length >= 2 && tag[0] == 'd',
+            orElse: () => ['d', 'unknown'],
+          );
+          final electionId = dTag.length >= 2 ? dTag[1] : 'unknown';
+          
+          debugPrint('   Election ID: $electionId');
+          debugPrint('   Kind: ${event.kind}');
+          debugPrint('   Content: ${event.content}');
+          debugPrint('   Results automatically stored in global service');
+        },
+        onError: (error) {
+          debugPrint('❌ GLOBAL: Error in election results stream: $error');
+        },
+        onDone: () {
+          debugPrint('🔚 GLOBAL: Election results stream closed');
+        },
+      );
+      
+      debugPrint('✅ Global election results subscription started successfully');
+      debugPrint('   Listening for ALL kind 35001 events from: ${AppConfig.ecPublicKey}');
+      debugPrint('   Results will be stored globally for all elections');
+      
+    } catch (e) {
+      debugPrint('❌ Failed to start global election results subscription: $e');
     }
   }
 

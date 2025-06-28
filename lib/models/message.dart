@@ -6,7 +6,7 @@ class Message {
   /// Election ID
   final String id;
   
-  /// Message kind: 1 = Token request/response, 2 = Vote
+  /// Message kind: 1 = Token request/response, 2 = Vote, 3 = Error
   final int kind;
   
   /// Base64 encoded payload (blind signature, vote data, etc.)
@@ -83,14 +83,20 @@ class Message {
     try {
       // Check basic field presence and types
       if (id.isEmpty) return false;
-      if (kind < 1 || kind > 2) return false; // Only support kinds 1 and 2
+      if (kind < 1 || kind > 3) return false; // Support kinds 1, 2, and 3
       if (payload.isEmpty) return false;
 
-      // Validate base64 payload format
-      try {
-        base64.decode(payload);
-      } catch (e) {
-        return false; // Invalid base64
+      // Validate payload format (base64 for kinds 1&2, any text for kind 3)
+      if (kind == 3) {
+        // Error messages can be plain text or base64, both are valid
+        return true;
+      } else {
+        // Token and vote messages must be valid base64
+        try {
+          base64.decode(payload);
+        } catch (e) {
+          return false; // Invalid base64
+        }
       }
 
       return true;
@@ -106,6 +112,8 @@ class Message {
         return 'Token Request/Response';
       case 2:
         return 'Vote';
+      case 3:
+        return 'Error';
       default:
         return 'Unknown';
     }
@@ -116,6 +124,27 @@ class Message {
 
   /// Check if this is a vote message
   bool get isVoteMessage => kind == 2;
+
+  /// Check if this is an error message
+  bool get isErrorMessage => kind == 3;
+
+  /// Get error message content (for kind 3 messages)
+  String? get errorContent {
+    if (!isErrorMessage) return null;
+    try {
+      // For error messages, payload contains the error text (may not be base64)
+      // Try to decode as base64 first, if that fails, use as plain text
+      try {
+        final decoded = base64.decode(payload);
+        return utf8.decode(decoded);
+      } catch (e) {
+        // If base64 decode fails, treat as plain text
+        return payload;
+      }
+    } catch (e) {
+      return null;
+    }
+  }
 
   @override
   String toString() {

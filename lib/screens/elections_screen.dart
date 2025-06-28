@@ -64,18 +64,30 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
   /// Handle incoming messages from Gift Wrap events
   Future<void> _handleIncomingMessage(Message message) async {
     try {
-      debugPrint('🔄 Processing message in ElectionsScreen: $message');
+      debugPrint('🔄 ElectionsScreen: Processing message: $message');
+      debugPrint('   Kind: ${message.kind}');
+      debugPrint('   Election ID: ${message.id}');
+      debugPrint('   isTokenMessage: ${message.isTokenMessage}');
+      debugPrint('   isVoteMessage: ${message.isVoteMessage}');
+      debugPrint('   isErrorMessage: ${message.isErrorMessage}');
       
       final processor = BlindSignatureProcessor.instance;
       final success = await processor.processMessage(message);
       
-      if (success && message.isTokenMessage) {
-        debugPrint('✅ Blind signature processed successfully for election: ${message.id}');
-        // Note: Success notification will be shown in election detail screen
-        // to avoid duplicate notifications and provide better UX context
+      debugPrint('🔄 ElectionsScreen: Message processing result: $success');
+      
+      if (success) {
+        if (message.isTokenMessage) {
+          debugPrint('✅ Blind signature processed successfully for election: ${message.id}');
+        } else if (message.isErrorMessage) {
+          debugPrint('❌ Error message processed for election: ${message.id}');
+        }
+      } else {
+        debugPrint('❌ Failed to process message for election: ${message.id}');
       }
     } catch (e) {
       debugPrint('❌ Error handling incoming message: $e');
+      debugPrint('❌ Stack trace: ${StackTrace.current}');
     }
   }
 
@@ -240,4 +252,5 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
       debugPrint('❌ Error requesting blind signature: $e');
     }
   }
+
 }
