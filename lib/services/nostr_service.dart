@@ -258,7 +258,9 @@ class NostrService {
 
       debugPrint('✅ Message parsed successfully: $message');
       debugPrint('📤 Emitting message through stream controller');
-      debugPrint('   Stream controller is closed: ${_messageController.isClosed}');
+      debugPrint(
+        '   Stream controller is closed: ${_messageController.isClosed}',
+      );
       debugPrint('   Stream has listeners: ${_messageController.hasListener}');
 
       // Emit the message through the stream
@@ -332,13 +334,6 @@ class NostrService {
     }
   }
 
-  Future<void> sendBlindedNonce(
-    String ecPublicKey,
-    Uint8List blindedNonce,
-  ) async {
-    if (!_connected) throw Exception('Not connected to relay');
-    debugPrint('Sending blinded nonce to EC: ${base64.encode(blindedNonce)}');
-  }
 
   Future<void> sendBlindSignatureRequest({
     required String ecPubKey,
@@ -452,14 +447,17 @@ class NostrService {
       debugPrint('🗳️ Sending vote message via Gift Wrap...');
       debugPrint('   Message: $messageJson');
       debugPrint('   EC pubkey: $ecPubKey');
-      debugPrint('   Using anonymous key: ${randomPubKeyHex.substring(0, 16)}...');
+      debugPrint(
+        '   Using anonymous key: ${randomPubKeyHex.substring(0, 16)}...',
+      );
 
       // Create NIP-59 gift wrap using anonymous keys
       final giftWrapEvent = await Nip59.createNIP59Event(
         messageJson,
         ecPubKey,
         randomPrivKeyHex,
-        generateKeyPairFromPrivateKey: _nostr.services.keys.generateKeyPairFromExistingPrivateKey,
+        generateKeyPairFromPrivateKey:
+            _nostr.services.keys.generateKeyPairFromExistingPrivateKey,
         generateKeyPair: _nostr.services.keys.generateKeyPair,
         isValidPrivateKey: _nostr.services.keys.isValidPrivateKey,
       );
@@ -484,24 +482,15 @@ class NostrService {
       await Future.delayed(const Duration(milliseconds: 500));
 
       debugPrint('✅ Vote Gift Wrap sent successfully: ${giftWrapEvent.id}');
-      debugPrint('🔒 Vote sent anonymously - cannot be traced to voter identity');
-
+      debugPrint(
+        '🔒 Vote sent anonymously - cannot be traced to voter identity',
+      );
     } catch (e) {
       debugPrint('❌ Error sending vote message: $e');
       rethrow;
     }
   }
 
-  Future<void> castVote(
-    String electionId,
-    int candidateId,
-    Uint8List signature,
-  ) async {
-    if (!_connected) throw Exception('Not connected to relay');
-    debugPrint(
-      'Casting vote for candidate $candidateId in election $electionId',
-    );
-  }
 
   Stream<NostrEvent> subscribeToElections() {
     if (!_connected) {
@@ -575,288 +564,6 @@ class NostrService {
         .asBroadcastStream(); // Make it a broadcast stream to allow multiple listeners
   }
 
-  Stream<NostrEvent> subscribeToResults(String electionId) {
-    if (!_connected) {
-      throw Exception('Not connected to relay');
-    }
-
-    debugPrint('📊 Subscribing to results for election: $electionId');
-
-    // Create filter for election results (kind 1 with election_id tag)
-    final filter = NostrFilter(
-      kinds: [1], // Regular text notes that contain results
-      since: DateTime.now().subtract(const Duration(hours: 24)),
-      e: [electionId], // Election event reference
-      t: ['election_results'], // Type tag
-    );
-
-    debugPrint('📡 Starting results subscription...');
-
-    final request = NostrRequest(filters: [filter]);
-
-    final nostrStream = _nostr.services.relays.startEventsSubscription(
-      request: request,
-    );
-
-    return nostrStream.stream
-        .map((dartNostrEvent) {
-          debugPrint('📥 Received result event: ${dartNostrEvent.id}');
-          return dartNostrEvent;
-        })
-        .where((dartNostrEvent) {
-          // Filter for valid result events
-          final hasContent = dartNostrEvent.content?.isNotEmpty ?? false;
-          final hasElectionTag =
-              dartNostrEvent.tags?.any(
-                (tag) =>
-                    tag.length >= 2 && tag[0] == 'e' && tag[1] == electionId,
-              ) ??
-              false;
-          final hasResultTag =
-              dartNostrEvent.tags?.any(
-                (tag) =>
-                    tag.length >= 2 &&
-                    tag[0] == 't' &&
-                    tag[1] == 'election_results',
-              ) ??
-              false;
-
-          debugPrint(
-            '🔍 Filtering result: content=$hasContent, election=$hasElectionTag, result=$hasResultTag',
-          );
-          return hasContent && hasElectionTag && hasResultTag;
-        })
-        .map((dartNostrEvent) {
-          debugPrint('✅ Processing valid result event: ${dartNostrEvent.id}');
-          return NostrEvent(
-            id: dartNostrEvent.id ?? '',
-            pubkey: dartNostrEvent.pubkey,
-            createdAt:
-                (dartNostrEvent.createdAt?.millisecondsSinceEpoch ??
-                    DateTime.now().millisecondsSinceEpoch) ~/
-                1000,
-            kind: dartNostrEvent.kind ?? 0,
-            tags:
-                dartNostrEvent.tags
-                    ?.map((tag) => tag.map((e) => e.toString()).toList())
-                    .toList() ??
-                [],
-            content: dartNostrEvent.content ?? '',
-            sig: dartNostrEvent.sig ?? '',
-          );
-        })
-        .handleError((error) {
-          debugPrint('🚨 Results stream error: $error');
-        })
-        .asBroadcastStream();
-  }
-
-  Stream<NostrEvent> subscribeToBlindSignatures() {
-    if (!_connected) {
-      throw Exception('Not connected to relay');
-    }
-
-    if (_currentKeyPair == null) {
-      throw Exception('No key pair available for subscription');
-    }
-
-    debugPrint(
-      '🔐 Subscribing to blind signatures for pubkey: ${_currentKeyPair!.public}',
-    );
-
-    // Create filter for NIP-59 Gift Wrap events directed to our public key
-    // Note: No 'since' parameter due to NIP-59 timestamp randomization
-    final filter = NostrFilter(
-      kinds: [1059], // NIP-59 Gift Wrap events
-      p: [_currentKeyPair!.public], // Messages directed to our pubkey
-      limit: 100, // Limit to prevent excessive historical events
-      since: DateTime.now().subtract(
-        const Duration(days: 2),
-      ), // gift wraps events have time tweaked
-    );
-
-    debugPrint('📡 Starting blind signatures subscription...');
-
-    final request = NostrRequest(filters: [filter]);
-
-    final nostrStream = _nostr.services.relays.startEventsSubscription(
-      request: request,
-    );
-
-    return nostrStream.stream
-        .map((dartNostrEvent) {
-          debugPrint('📥 Received wrapped event: ${dartNostrEvent.id}');
-          return dartNostrEvent;
-        })
-        .where((dartNostrEvent) {
-          // Filter for valid wrapped events
-          final hasContent = dartNostrEvent.content?.isNotEmpty ?? false;
-          final hasPubkeyTag =
-              dartNostrEvent.tags?.any(
-                (tag) =>
-                    tag.length >= 2 &&
-                    tag[0] == 'p' &&
-                    tag[1] == _currentKeyPair!.public,
-              ) ??
-              false;
-          final isGiftWrap = dartNostrEvent.kind == 1059;
-
-          debugPrint(
-            '🔍 Filtering wrapped: content=$hasContent, pubkey=$hasPubkeyTag, giftWrap=$isGiftWrap',
-          );
-          return hasContent && hasPubkeyTag && isGiftWrap;
-        })
-        .asyncMap((dartNostrEvent) async {
-          try {
-            debugPrint(
-              '🎁 Attempting to unwrap NIP-59 event: ${dartNostrEvent.id}',
-            );
-
-            // Unwrap the NIP-59 Gift Wrap event using decryptNIP59Event
-            // Convert dart_nostr event to nip59 compatible format
-            final dartNostrEventForDecryption = dartNostrEvent;
-
-            final decryptedEvent = await Nip59.decryptNIP59Event(
-              dartNostrEventForDecryption,
-              _currentKeyPair!.private,
-              isValidPrivateKey: _nostr.services.keys.isValidPrivateKey,
-            );
-
-            final unwrappedPayload = decryptedEvent.content ?? '';
-
-            debugPrint('📦 Successfully unwrapped payload: $unwrappedPayload');
-
-            // Validate rumor timestamp (canonical time) - NIP-59 compliance
-            final rumorTimestamp = decryptedEvent.createdAt;
-            final now = DateTime.now();
-            final maxAge = now.subtract(
-              const Duration(hours: 24),
-            ); // Accept rumors up to 24h old
-
-            if (rumorTimestamp != null && rumorTimestamp.isBefore(maxAge)) {
-              debugPrint('❌ Rumor too old: $rumorTimestamp (max age: 24h)');
-              return null;
-            }
-            debugPrint('✅ Rumor timestamp valid: $rumorTimestamp');
-
-            // Try to parse the payload as JSON to check if it's a blind signature response
-            try {
-              final payloadJson = jsonDecode(unwrappedPayload);
-              if (payloadJson is Map<String, dynamic> &&
-                  payloadJson.containsKey('blind_signature')) {
-                debugPrint('✅ Found blind signature in payload');
-
-                // Return the original event but with the unwrapped content
-                return NostrEvent(
-                  id: dartNostrEvent.id ?? '',
-                  pubkey: dartNostrEvent.pubkey,
-                  createdAt:
-                      (dartNostrEvent.createdAt?.millisecondsSinceEpoch ??
-                          DateTime.now().millisecondsSinceEpoch) ~/
-                      1000,
-                  kind: dartNostrEvent.kind ?? 0,
-                  tags:
-                      dartNostrEvent.tags
-                          ?.map((tag) => tag.map((e) => e.toString()).toList())
-                          .toList() ??
-                      [],
-                  content: unwrappedPayload, // Use unwrapped content
-                  sig: dartNostrEvent.sig ?? '',
-                );
-              }
-            } catch (e) {
-              debugPrint(
-                '⚠️ Payload is not JSON or missing blind_signature: $e',
-              );
-            }
-
-            return null; // Not a blind signature response
-          } catch (e) {
-            debugPrint('❌ Failed to unwrap NIP-59 event: $e');
-            return null;
-          }
-        })
-        .where((event) => event != null)
-        .cast<NostrEvent>()
-        .handleError((error) {
-          debugPrint('🚨 Blind signatures stream error: $error');
-        })
-        .asBroadcastStream();
-  }
-
-  Future<Uint8List?> waitForBlindSignature({
-    Duration timeout = const Duration(seconds: 30),
-  }) async {
-    if (!_connected) {
-      throw Exception('Not connected to relay');
-    }
-
-    if (_currentKeyPair == null) {
-      throw Exception('No key pair available for waiting');
-    }
-
-    debugPrint(
-      '⏳ Waiting for blind signature (timeout: ${timeout.inSeconds}s)...',
-    );
-
-    final completer = Completer<Uint8List?>();
-    StreamSubscription? subscription;
-
-    try {
-      // Subscribe to blind signatures and wait for the first valid response
-      subscription = subscribeToBlindSignatures().listen(
-        (event) {
-          try {
-            debugPrint('🎯 Processing potential blind signature event');
-
-            // Parse the unwrapped content
-            final payloadJson = jsonDecode(event.content);
-            if (payloadJson is Map<String, dynamic> &&
-                payloadJson.containsKey('blind_signature')) {
-              final blindSigBase64 = payloadJson['blind_signature'] as String;
-              final blindSignature = base64.decode(blindSigBase64);
-
-              debugPrint(
-                '✅ Received blind signature: ${blindSignature.length} bytes',
-              );
-
-              if (!completer.isCompleted) {
-                completer.complete(blindSignature);
-              }
-            } else {
-              debugPrint(
-                '⚠️ Event content is not a valid blind signature response',
-              );
-            }
-          } catch (e) {
-            debugPrint('❌ Error processing blind signature event: $e');
-            if (!completer.isCompleted) {
-              completer.completeError('Failed to process blind signature: $e');
-            }
-          }
-        },
-        onError: (error) {
-          debugPrint('🚨 Blind signature subscription error: $error');
-          if (!completer.isCompleted) {
-            completer.completeError('Subscription error: $error');
-          }
-        },
-      );
-
-      // Set up timeout
-      Timer(timeout, () {
-        if (!completer.isCompleted) {
-          debugPrint('⏰ Timeout waiting for blind signature');
-          completer.complete(null);
-        }
-      });
-
-      return await completer.future;
-    } finally {
-      await subscription?.cancel();
-      debugPrint('🔚 Blind signature wait completed');
-    }
-  }
 
   /// Subscribe to all election results events from EC public key (kind 35001)
   /// This will store all election results globally and show real-time logs
@@ -865,7 +572,9 @@ class NostrService {
       throw Exception('Not connected to relay');
     }
 
-    debugPrint('📡 Subscribing to ALL election results from EC pubkey: $ecPublicKey');
+    debugPrint(
+      '📡 Subscribing to ALL election results from EC pubkey: $ecPublicKey',
+    );
     debugPrint('   Looking for: kind=35001 (any d tag = election results)');
 
     // Create filter for ALL kind 35001 events from the EC public key
@@ -892,25 +601,27 @@ class NostrService {
           debugPrint('   Content: ${dartNostrEvent.content}');
           debugPrint('   Tags: ${dartNostrEvent.tags}');
           debugPrint('   ---');
-          
+
           return dartNostrEvent;
         })
         .where((dartNostrEvent) {
           // Verify the event matches our criteria
           final isCorrectKind = dartNostrEvent.kind == 35001;
           final isCorrectAuthor = dartNostrEvent.pubkey == ecPublicKey;
-          final hasDTag = dartNostrEvent.tags?.any(
-            (tag) => tag.length >= 2 && tag[0] == 'd',
-          ) ?? false;
-          
+          final hasDTag =
+              dartNostrEvent.tags?.any(
+                (tag) => tag.length >= 2 && tag[0] == 'd',
+              ) ??
+              false;
+
           debugPrint('🔍 Event filter check:');
           debugPrint('   Correct kind (35001): $isCorrectKind');
           debugPrint('   Correct author: $isCorrectAuthor');
           debugPrint('   Has d tag: $hasDTag');
-          
+
           final passes = isCorrectKind && isCorrectAuthor && hasDTag;
           debugPrint('   Filter result: ${passes ? "✅ PASSES" : "❌ REJECTED"}');
-          
+
           return passes;
         })
         .map((dartNostrEvent) {
@@ -919,19 +630,24 @@ class NostrService {
             (tag) => tag.length >= 2 && tag[0] == 'd',
             orElse: () => ['d', 'unknown'],
           );
-          final electionId = dTag != null && dTag.length >= 2 ? dTag[1] : 'unknown';
-          
+          final electionId = dTag != null && dTag.length >= 2
+              ? dTag[1]
+              : 'unknown';
+
           debugPrint('📊 Processing election results for: $electionId');
-          
+
           // Store results in global service
-          if (dartNostrEvent.content != null && dartNostrEvent.content!.isNotEmpty) {
+          if (dartNostrEvent.content != null &&
+              dartNostrEvent.content!.isNotEmpty) {
             ElectionResultsService.instance.updateResultsFromEventContent(
-              electionId, 
+              electionId,
               dartNostrEvent.content!,
             );
           }
-          
-          debugPrint('✅ ELECTION RESULTS PROCESSED: ${dartNostrEvent.id} for election: $electionId');
+
+          debugPrint(
+            '✅ ELECTION RESULTS PROCESSED: ${dartNostrEvent.id} for election: $electionId',
+          );
           return NostrEvent(
             id: dartNostrEvent.id ?? '',
             pubkey: dartNostrEvent.pubkey,
@@ -957,9 +673,12 @@ class NostrService {
 
   /// Subscribe to election results for a specific election ID
   /// Filters global results stream for specific election
-  Stream<NostrEvent> subscribeToElectionResults(String ecPublicKey, String electionId) {
+  Stream<NostrEvent> subscribeToElectionResults(
+    String ecPublicKey,
+    String electionId,
+  ) {
     debugPrint('📊 Subscribing to results for specific election: $electionId');
-    
+
     return subscribeToAllElectionResults(ecPublicKey)
         .where((event) {
           // Filter for specific election ID from d tag
@@ -968,10 +687,12 @@ class NostrService {
             orElse: () => ['d', ''],
           );
           final eventElectionId = dTag.length >= 2 ? dTag[1] : '';
-          
+
           final matches = eventElectionId == electionId;
-          debugPrint('🔍 Election filter: $eventElectionId == $electionId ? $matches');
-          
+          debugPrint(
+            '🔍 Election filter: $eventElectionId == $electionId ? $matches',
+          );
+
           return matches;
         })
         .handleError((error) {

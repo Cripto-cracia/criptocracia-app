@@ -38,42 +38,10 @@ class TestConstants {
     'Special chars: !@#\$%^&*()[]{}|\\:";\'<>?,./`~',
   ];
   
-  // Performance test configuration
-  static const Map<String, dynamic> performanceConfig = {
-    'keyGenerationTimeoutMs': 15000,
-    'signatureOperationTimeoutMs': 2000,
-    'maxMemoryUsageMB': 100,
-    'batchTestSize': 10,
-    'performanceIterations': 5,
-  };
-  
-  // Security test configuration
-  static const Map<String, dynamic> securityConfig = {
-    'minBlindingFactorBits': 2040,
-    'maxTimingVarianceMs': 50,
-    'randomnessTestSampleSize': 1000,
-    'unlinkabilityTestCount': 100,
-  };
-  
   // Test timeouts
   static const Duration defaultTestTimeout = Duration(seconds: 30);
   static const Duration keyGenerationTimeout = Duration(seconds: 15);
   static const Duration performanceTestTimeout = Duration(minutes: 2);
-  
-  // Error test data
-  static const Map<String, String> errorTestCases = {
-    'invalidPem': 'invalid-pem-data',
-    'malformedJson': '{"invalid": json}',
-    'emptyString': '',
-    'nullValue': 'null',
-  };
-  
-  // Base64 test vectors
-  static const Map<String, String> base64TestVectors = {
-    'hello': 'SGVsbG8sIFdvcmxkIQ==',
-    'empty': '',
-    'binary': 'AQIDBAUGBwgJCgsMDQ4PEA==',
-  };
   
   /// Get test message by index
   static String getTestMessage(int index) {

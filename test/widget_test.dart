@@ -27,7 +27,5 @@ void main() {
       // Verify the drawer menu is accessible
       expect(find.byIcon(Icons.menu), findsOneWidget);
     },
-    // Skip on CI due to flakiness and network dependencies
-    skip: true,
   );
 }
