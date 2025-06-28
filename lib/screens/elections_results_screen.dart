@@ -124,60 +124,40 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              // TODO placeholder
+              // Election Results
               Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.construction,
-                        size: 64,
-                        color: Colors.grey[400],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'TODO',
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Detailed results view\ncoming soon',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.grey[500],
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 24),
-                      // Show basic stats for now
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            children: [
-                              Text(
-                                'Current Stats',
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                child: Column(
+                  children: [
+                    // Show basic stats
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Election Results',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
                               ),
-                              const SizedBox(height: 12),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                children: [
-                                  _buildStatItem('Total Votes', result.totalVotes.toString()),
-                                  _buildStatItem('Candidates', result.candidateVotes.length.toString()),
-                                ],
-                              ),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                _buildStatItem('Total Votes', result.totalVotes.toString()),
+                                _buildStatItem('Candidates', result.candidateVotes.length.toString()),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Candidate results list
+                    Expanded(
+                      child: _buildCandidateResultsList(result, scrollController),
+                    ),
+                  ],
                 ),
               ),
               // Close button
@@ -379,6 +359,129 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildCandidateResultsList(ElectionResult result, ScrollController scrollController) {
+    if (result.candidateVotes.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.inbox_outlined,
+              size: 48,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No votes recorded yet',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: Colors.grey[500],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final sortedCandidates = result.getCandidatesByVotes();
+
+    return ListView.builder(
+      controller: scrollController,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      itemCount: sortedCandidates.length,
+      itemBuilder: (context, index) {
+        final candidateId = sortedCandidates[index];
+        final votes = result.getVotesForCandidate(candidateId);
+        final percentage = result.totalVotes > 0 
+            ? (votes / result.totalVotes * 100).toStringAsFixed(1)
+            : '0.0';
+        
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Ranking
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: index == 0 
+                        ? Theme.of(context).colorScheme.primary
+                        : Colors.grey[300],
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${index + 1}',
+                      style: TextStyle(
+                        color: index == 0 
+                            ? Theme.of(context).colorScheme.onPrimary
+                            : Colors.grey[600],
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Candidate info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Candidate ID $candidateId',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '$votes votes ($percentage%)',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Vote count badge
+                if (index == 0 && votes > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.emoji_events,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Leading',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
