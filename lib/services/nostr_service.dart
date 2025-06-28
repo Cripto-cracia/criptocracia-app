@@ -6,6 +6,7 @@ import 'package:nip59/nip59.dart';
 import '../models/message.dart';
 import '../models/nostr_event.dart';
 import 'election_results_service.dart';
+import 'subscription_manager.dart';
 
 class NostrService {
   static NostrService? _instance;
@@ -16,8 +17,7 @@ class NostrService {
 
   bool _connected = false;
   bool _connecting = false;
-  StreamSubscription? _eventSubscription;
-  StreamSubscription? _giftWrapSubscription;
+  String? _giftWrapHandlerId;
   late dart_nostr.Nostr _nostr;
   dart_nostr.NostrKeyPairs? _currentKeyPair;
 
@@ -75,6 +75,7 @@ class NostrService {
 
       // Connection established - dart_nostr doesn't expose connection status checking
       // The init method will throw an exception if connection fails
+      SubscriptionManager.instance.initialize(_nostr);
 
       _connected = true;
       debugPrint('✅ Successfully connected to Nostr relay: $relayUrl');
@@ -109,10 +110,10 @@ class NostrService {
       debugPrint('🔌 Disconnecting from Nostr relays...');
 
       // Cancel any active subscriptions
-      await _eventSubscription?.cancel();
-      _eventSubscription = null;
-      await _giftWrapSubscription?.cancel();
-      _giftWrapSubscription = null;
+      if (_giftWrapHandlerId != null) {
+        SubscriptionManager.instance.unsubscribe(_giftWrapHandlerId!);
+        _giftWrapHandlerId = null;
+      }
 
       // Close all relay connections with timeout
       await Future.any([
@@ -145,7 +146,7 @@ class NostrService {
       throw Exception('Not connected to relay. Connect first.');
     }
 
-    if (_giftWrapSubscription != null) {
+    if (_giftWrapHandlerId != null) {
       debugPrint('🎁 Gift Wrap listener already active');
       return;
     }
@@ -165,28 +166,15 @@ class NostrService {
         ), // gift wraps events have time tweaked
       );
 
-      final request = dart_nostr.NostrRequest(filters: [filter]);
-
-      // Start subscription for Gift Wrap events
-      final giftWrapStream = _nostr.services.relays.startEventsSubscription(
-        request: request,
-      );
-
-      _giftWrapSubscription = giftWrapStream.stream.listen(
-        (dartNostrEvent) async {
+      _giftWrapHandlerId = SubscriptionManager.instance.subscribe(
+        filter: filter,
+        onEvent: (dartNostrEvent) async {
           debugPrint('🎁 Received Gift Wrap event from relay');
           debugPrint('   Event ID: ${dartNostrEvent.id}');
           debugPrint('   Kind: ${dartNostrEvent.kind}');
           debugPrint('   Pubkey: ${dartNostrEvent.pubkey}');
           debugPrint('   Created at: ${dartNostrEvent.createdAt}');
           await _handleGiftWrapEvent(dartNostrEvent, voterPrivKeyHex);
-        },
-        onError: (error) {
-          debugPrint('❌ Gift Wrap listener error: $error');
-          _errorController.add('Gift Wrap listener error: $error');
-        },
-        onDone: () {
-          debugPrint('🎁 Gift Wrap listener stream closed');
         },
       );
 
@@ -279,10 +267,10 @@ class NostrService {
 
   /// Stop the Gift Wrap listener
   Future<void> stopGiftWrapListener() async {
-    if (_giftWrapSubscription != null) {
+    if (_giftWrapHandlerId != null) {
       debugPrint('🛑 Stopping Gift Wrap listener');
-      await _giftWrapSubscription!.cancel();
-      _giftWrapSubscription = null;
+      SubscriptionManager.instance.unsubscribe(_giftWrapHandlerId!);
+      _giftWrapHandlerId = null;
       debugPrint('✅ Gift Wrap listener stopped');
     }
   }
@@ -571,101 +559,56 @@ class NostrService {
       throw Exception('Not connected to relay');
     }
 
-    debugPrint(
-      '📡 Subscribing to ALL election results from EC pubkey: $ecPublicKey',
-    );
-    debugPrint('   Looking for: kind=35001 (any d tag = election results)');
-
-    // Create filter for ALL kind 35001 events from the EC public key
     final filter = dart_nostr.NostrFilter(
-      kinds: [35001], // NIP-33 Parameterized Replaceable Events
-      authors: [ecPublicKey], // Only from this specific EC public key
+      kinds: [35001],
+      authors: [ecPublicKey],
     );
+    final controller = StreamController<NostrEvent>.broadcast();
 
-    final request = dart_nostr.NostrRequest(filters: [filter]);
+    final handlerId = SubscriptionManager.instance.subscribe(
+      filter: filter,
+      onEvent: (dartNostrEvent) {
+        final isCorrectKind = dartNostrEvent.kind == 35001;
+        final isCorrectAuthor = dartNostrEvent.pubkey == ecPublicKey;
+        final hasDTag = dartNostrEvent.tags?.any(
+          (tag) => tag.length >= 2 && tag[0] == 'd',
+        ) ?? false;
 
-    debugPrint('🔍 Starting election results subscription...');
-
-    final nostrStream = _nostr.services.relays.startEventsSubscription(
-      request: request,
-    );
-
-    return nostrStream.stream
-        .map((dartNostrEvent) {
-          debugPrint('🎯 ELECTION RESULTS EVENT RECEIVED:');
-          debugPrint('   ID: ${dartNostrEvent.id}');
-          debugPrint('   Kind: ${dartNostrEvent.kind}');
-          debugPrint('   Author: ${dartNostrEvent.pubkey}');
-          debugPrint('   Created: ${dartNostrEvent.createdAt}');
-          debugPrint('   Content: ${dartNostrEvent.content}');
-          debugPrint('   Tags: ${dartNostrEvent.tags}');
-          debugPrint('   ---');
-
-          return dartNostrEvent;
-        })
-        .where((dartNostrEvent) {
-          // Verify the event matches our criteria
-          final isCorrectKind = dartNostrEvent.kind == 35001;
-          final isCorrectAuthor = dartNostrEvent.pubkey == ecPublicKey;
-          final hasDTag =
-              dartNostrEvent.tags?.any(
-                (tag) => tag.length >= 2 && tag[0] == 'd',
-              ) ??
-              false;
-
-          debugPrint('🔍 Event filter check:');
-          debugPrint('   Correct kind (35001): $isCorrectKind');
-          debugPrint('   Correct author: $isCorrectAuthor');
-          debugPrint('   Has d tag: $hasDTag');
-
-          final passes = isCorrectKind && isCorrectAuthor && hasDTag;
-          debugPrint('   Filter result: ${passes ? "✅ PASSES" : "❌ REJECTED"}');
-
-          return passes;
-        })
-        .map((dartNostrEvent) {
-          // Extract election ID from d tag and store results
+        if (isCorrectKind && isCorrectAuthor && hasDTag) {
           final dTag = dartNostrEvent.tags?.firstWhere(
             (tag) => tag.length >= 2 && tag[0] == 'd',
             orElse: () => ['d', 'unknown'],
           );
-          final electionId = dTag != null && dTag.length >= 2
-              ? dTag[1]
-              : 'unknown';
+          final electionId = dTag != null && dTag.length >= 2 ? dTag[1] : 'unknown';
 
-          debugPrint('📊 Processing election results for: $electionId');
-
-          // Store results in global service
-          if (dartNostrEvent.content != null &&
-              dartNostrEvent.content!.isNotEmpty) {
+          if (dartNostrEvent.content != null && dartNostrEvent.content!.isNotEmpty) {
             ElectionResultsService.instance.updateResultsFromEventContent(
               electionId,
               dartNostrEvent.content!,
             );
           }
 
-          debugPrint(
-            '✅ ELECTION RESULTS PROCESSED: ${dartNostrEvent.id} for election: $electionId',
-          );
-          return NostrEvent(
+          controller.add(NostrEvent(
             id: dartNostrEvent.id ?? '',
             pubkey: dartNostrEvent.pubkey,
             createdAt: (dartNostrEvent.createdAt?.millisecondsSinceEpoch ?? 
                 DateTime.now().millisecondsSinceEpoch) ~/ 1000,
             kind: dartNostrEvent.kind ?? 0,
-            tags:
-                dartNostrEvent.tags
-                    ?.map((tag) => tag.map((e) => e.toString()).toList())
-                    .toList() ??
-                [],
+            tags: dartNostrEvent.tags
+                ?.map((tag) => tag.map((e) => e.toString()).toList())
+                .toList() ?? [],
             content: dartNostrEvent.content ?? '',
             sig: dartNostrEvent.sig ?? '',
-          );
-        })
-        .handleError((error) {
-          debugPrint('🚨 Election results stream error: $error');
-        })
-        .asBroadcastStream();
+          ));
+        }
+      },
+    );
+
+    controller.onCancel = () {
+      SubscriptionManager.instance.unsubscribe(handlerId);
+    };
+
+    return controller.stream;
   }
 
   /// Subscribe to election results for a specific election ID
@@ -710,8 +653,12 @@ class NostrService {
     }
     
     // Cancel active subscriptions
-    _giftWrapSubscription?.cancel();
-    _giftWrapSubscription = null;
+    if (_giftWrapHandlerId != null) {
+      SubscriptionManager.instance.unsubscribe(_giftWrapHandlerId!);
+      _giftWrapHandlerId = null;
+    }
+    
+    SubscriptionManager.instance.dispose();
     
     debugPrint('✅ NostrService: All resources disposed');
   }
