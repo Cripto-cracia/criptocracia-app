@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/election.dart';
 import '../services/nostr_service.dart';
 import '../services/selected_election_service.dart';
+import '../services/election_results_service.dart';
 import '../config/app_config.dart';
 import 'dart:convert';
 import 'dart:async';
@@ -77,6 +78,10 @@ class ElectionProvider with ChangeNotifier {
               debugPrint(
                 '✅ Created election: ${election.name} (${election.id})',
               );
+
+              // Store election metadata for results service
+              ElectionResultsService.instance.storeElectionMetadata(election);
+              debugPrint('📋 Stored election metadata for results: ${election.name}');
 
               // Update existing election or add new one
               final existingIndex = _elections.indexWhere(
@@ -209,6 +214,9 @@ class ElectionProvider with ChangeNotifier {
             try {
               final content = jsonDecode(event.content);
               final election = Election.fromJson(content);
+              
+              // Store election metadata for results service
+              ElectionResultsService.instance.storeElectionMetadata(election);
               
               // Check if this is a new election or an update to existing one
               final existingIndex = _elections.indexWhere((e) => e.id == election.id);

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:provider/provider.dart';
 import '../models/election_result.dart';
 import '../services/election_results_service.dart';
+import '../providers/election_provider.dart';
 import '../generated/app_localizations.dart';
 
 class ElectionsResultsScreen extends StatefulWidget {
@@ -19,8 +21,19 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
   @override
   void initState() {
     super.initState();
+    _initializeElectionMetadata();
     _loadResults();
     _startListening();
+  }
+
+  /// Initialize election metadata from ElectionProvider
+  void _initializeElectionMetadata() {
+    // Get existing elections from ElectionProvider and store their metadata
+    final electionProvider = context.read<ElectionProvider>();
+    for (final election in electionProvider.elections) {
+      ElectionResultsService.instance.storeElectionMetadata(election);
+    }
+    debugPrint('📋 Initialized ${electionProvider.elections.length} election metadata entries');
   }
 
   @override
