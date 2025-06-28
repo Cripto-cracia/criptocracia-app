@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import '../models/election_result.dart';
+import '../models/election.dart';
 
 /// Service for managing election results globally across the app
 /// Stores results as Map with electionId as key and Map with candidateId and voteCount as value
@@ -13,6 +15,9 @@ class ElectionResultsService {
 
   // Global storage: electionId -> (candidateId -> voteCount)
   final Map<String, Map<int, int>> _electionResults = {};
+  
+  // Election metadata storage: electionId -> Election
+  final Map<String, Election> _electionMetadata = {};
   
   // Stream controller to notify listeners of results changes
   final StreamController<String> _resultsUpdateController = 
@@ -52,6 +57,38 @@ class ElectionResultsService {
     return _electionResults[electionId];
   }
 
+  /// Store election metadata for results display
+  void storeElectionMetadata(Election election) {
+    _electionMetadata[election.id] = election;
+  }
+
+  /// Get all elections that have results
+  List<ElectionResult> getAllElectionResults() {
+    final results = <ElectionResult>[];
+    
+    for (final entry in _electionResults.entries) {
+      final electionId = entry.key;
+      final candidateVotes = entry.value;
+      final metadata = _electionMetadata[electionId];
+      
+      results.add(ElectionResult(
+        electionId: electionId,
+        electionName: metadata?.name ?? 'Unknown Election ($electionId)',
+        candidateVotes: Map.from(candidateVotes),
+        lastUpdate: DateTime.now(), // TODO: Track actual update time
+      ));
+    }
+    
+    // Sort by last update (most recent first)
+    results.sort((a, b) => b.lastUpdate.compareTo(a.lastUpdate));
+    return results;
+  }
+
+  /// Check if election has results
+  bool hasResultsForElection(String electionId) {
+    return _electionResults.containsKey(electionId);
+  }
+
   /// Emit current state for all elections
   void emitCurrentState() {
     for (final electionId in _electionResults.keys) {
@@ -60,17 +97,31 @@ class ElectionResultsService {
   }
 
   /// Update election results from Nostr event content
+  /// Handles format: [[4,21],[3,35]] where each array is [candidate_id, vote_count]
   void updateResultsFromEventContent(String electionId, String content) {
     try {
+      debugPrint('📊 Updating results for election: $electionId');
+      debugPrint('   Content: $content');
+      
       final results = _parseJsonSafely(content);
       if (results is List) {
         final Map<int, int> candidateVotes = {};
+        
         for (final result in results) {
-          if (result is Map && result.containsKey('candidate_id') && result.containsKey('vote_count')) {
+          if (result is List && result.length >= 2) {
+            // New format: [candidate_id, vote_count]
+            final candidateId = result[0] as int;
+            final voteCount = result[1] as int;
+            candidateVotes[candidateId] = voteCount;
+            debugPrint('   Candidate $candidateId: $voteCount votes');
+          } else if (result is Map && result.containsKey('candidate_id') && result.containsKey('vote_count')) {
+            // Legacy format: {"candidate_id": X, "vote_count": Y}
             candidateVotes[result['candidate_id']] = result['vote_count'];
           }
         }
+        
         _electionResults[electionId] = candidateVotes;
+        debugPrint('✅ Results updated for election $electionId: $candidateVotes');
         _resultsUpdateController.add(electionId);
       }
     } catch (e) {

@@ -6,7 +6,7 @@ import 'config/app_config.dart';
 import 'providers/election_provider.dart';
 import 'providers/results_provider.dart';
 import 'screens/elections_screen.dart';
-import 'screens/results_screen.dart';
+import 'screens/elections_results_screen.dart';
 import 'screens/account_screen.dart';
 import 'services/nostr_key_manager.dart';
 import 'services/secure_storage_service.dart';
@@ -185,16 +185,7 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     final List<Widget> pages = [
       const ElectionsScreen(),
-      Consumer<ElectionProvider>(
-        builder: (context, provider, child) {
-          if (provider.elections.isNotEmpty) {
-            return ResultsScreen(election: provider.elections.first);
-          }
-          return Center(
-            child: Text(AppLocalizations.of(context).selectElectionToViewResults),
-          );
-        },
-      ),
+      const ElectionsResultsScreen(),
     ];
 
     return Scaffold(
