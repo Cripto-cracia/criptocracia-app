@@ -115,8 +115,16 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   void dispose() {
+    debugPrint('🧹 MainScreenState: Disposing resources...');
+    
+    // Cancel specific subscription
     _electionResultsSubscription?.cancel();
+    
+    // Dispose NostrService and all managed subscriptions
+    NostrService.instance.dispose();
+    
     super.dispose();
+    debugPrint('✅ MainScreenState: Disposal completed');
   }
 
   Future<void> _initializeKeys() async {

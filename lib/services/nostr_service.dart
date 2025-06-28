@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:dart_nostr/dart_nostr.dart';
+import 'package:dart_nostr/dart_nostr.dart' as dart_nostr;
 import 'package:nip59/nip59.dart';
 import '../models/message.dart';
+import '../models/nostr_event.dart';
 import 'election_results_service.dart';
 
 class NostrService {
@@ -17,8 +18,8 @@ class NostrService {
   bool _connecting = false;
   StreamSubscription? _eventSubscription;
   StreamSubscription? _giftWrapSubscription;
-  late Nostr _nostr;
-  NostrKeyPairs? _currentKeyPair;
+  late dart_nostr.Nostr _nostr;
+  dart_nostr.NostrKeyPairs? _currentKeyPair;
 
   // Stream controllers for different types of messages
   final StreamController<Message> _messageController =
@@ -59,7 +60,7 @@ class NostrService {
       debugPrint('🔗 Attempting to connect to Nostr relay: $relayUrl');
 
       // Initialize dart_nostr with the relay
-      _nostr = Nostr.instance;
+      _nostr = dart_nostr.Nostr.instance;
 
       // Use timeout for relay initialization
       await Future.any([
@@ -155,7 +156,7 @@ class NostrService {
       // Create filter for Gift Wrap events (kind 1059) directed to this voter
       // Note: No 'since' parameter due to NIP-59 timestamp randomization
       // Gift Wrap timestamps are intentionally tweaked to prevent timing analysis
-      final filter = NostrFilter(
+      final filter = dart_nostr.NostrFilter(
         kinds: [1059], // NIP-59 Gift Wrap events
         p: [voterPubKeyHex], // Events tagged to this voter's pubkey
         limit: 100, // Limit to prevent excessive historical events
@@ -164,7 +165,7 @@ class NostrService {
         ), // gift wraps events have time tweaked
       );
 
-      final request = NostrRequest(filters: [filter]);
+      final request = dart_nostr.NostrRequest(filters: [filter]);
 
       // Start subscription for Gift Wrap events
       final giftWrapStream = _nostr.services.relays.startEventsSubscription(
@@ -499,7 +500,7 @@ class NostrService {
 
     // Create request filter for kind 35000 events (elections)
     // Note: No 'since' or 'limit' parameters to ensure maximum real-time event reception
-    final filter = NostrFilter(
+    final filter = dart_nostr.NostrFilter(
       kinds: [35000], // Election events only
     );
 
@@ -510,7 +511,7 @@ class NostrService {
     debugPrint('📡 Starting subscription for kind 35000 events...');
 
     // Create request using dart_nostr
-    final request = NostrRequest(filters: [filter]);
+    final request = dart_nostr.NostrRequest(filters: [filter]);
 
     // Start subscription using dart_nostr
     final nostrStream = _nostr.services.relays.startEventsSubscription(
@@ -544,10 +545,8 @@ class NostrService {
           return NostrEvent(
             id: dartNostrEvent.id ?? '',
             pubkey: dartNostrEvent.pubkey,
-            createdAt:
-                (dartNostrEvent.createdAt?.millisecondsSinceEpoch ??
-                    DateTime.now().millisecondsSinceEpoch) ~/
-                1000,
+            createdAt: (dartNostrEvent.createdAt?.millisecondsSinceEpoch ?? 
+                DateTime.now().millisecondsSinceEpoch) ~/ 1000,
             kind: dartNostrEvent.kind ?? 0,
             tags:
                 dartNostrEvent.tags
@@ -578,12 +577,12 @@ class NostrService {
     debugPrint('   Looking for: kind=35001 (any d tag = election results)');
 
     // Create filter for ALL kind 35001 events from the EC public key
-    final filter = NostrFilter(
+    final filter = dart_nostr.NostrFilter(
       kinds: [35001], // NIP-33 Parameterized Replaceable Events
       authors: [ecPublicKey], // Only from this specific EC public key
     );
 
-    final request = NostrRequest(filters: [filter]);
+    final request = dart_nostr.NostrRequest(filters: [filter]);
 
     debugPrint('🔍 Starting election results subscription...');
 
@@ -651,10 +650,8 @@ class NostrService {
           return NostrEvent(
             id: dartNostrEvent.id ?? '',
             pubkey: dartNostrEvent.pubkey,
-            createdAt:
-                (dartNostrEvent.createdAt?.millisecondsSinceEpoch ??
-                    DateTime.now().millisecondsSinceEpoch) ~/
-                1000,
+            createdAt: (dartNostrEvent.createdAt?.millisecondsSinceEpoch ?? 
+                DateTime.now().millisecondsSinceEpoch) ~/ 1000,
             kind: dartNostrEvent.kind ?? 0,
             tags:
                 dartNostrEvent.tags
@@ -699,25 +696,23 @@ class NostrService {
           debugPrint('🚨 Specific election results stream error: $error');
         });
   }
-}
 
-// Nostr event class (keeping our own for consistency)
-class NostrEvent {
-  final String id;
-  final String pubkey;
-  final int createdAt;
-  final int kind;
-  final List<List<String>> tags;
-  final String content;
-  final String sig;
-
-  NostrEvent({
-    required this.id,
-    required this.pubkey,
-    required this.createdAt,
-    required this.kind,
-    required this.tags,
-    required this.content,
-    required this.sig,
-  });
+  /// Cleanup all resources when service is disposed
+  void dispose() {
+    debugPrint('🧹 NostrService: Disposing all resources...');
+    
+    // Close stream controllers
+    if (!_messageController.isClosed) {
+      _messageController.close();
+    }
+    if (!_errorController.isClosed) {
+      _errorController.close();
+    }
+    
+    // Cancel active subscriptions
+    _giftWrapSubscription?.cancel();
+    _giftWrapSubscription = null;
+    
+    debugPrint('✅ NostrService: All resources disposed');
+  }
 }
