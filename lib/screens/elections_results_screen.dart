@@ -30,10 +30,14 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
   void _initializeElectionMetadata() {
     // Get existing elections from ElectionProvider and store their metadata
     final electionProvider = context.read<ElectionProvider>();
+    debugPrint('🔄 Initializing election metadata from ElectionProvider...');
+    debugPrint('   Available elections: ${electionProvider.elections.length}');
+    
     for (final election in electionProvider.elections) {
+      debugPrint('   Processing election: ${election.id} -> ${election.name}');
       ElectionResultsService.instance.storeElectionMetadata(election);
     }
-    debugPrint('📋 Initialized ${electionProvider.elections.length} election metadata entries');
+    debugPrint('✅ Initialized ${electionProvider.elections.length} election metadata entries');
   }
 
   @override
