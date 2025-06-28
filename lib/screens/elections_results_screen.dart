@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:provider/provider.dart';
 import '../models/election_result.dart';
+import '../models/election.dart';
 import '../services/election_results_service.dart';
 import '../providers/election_provider.dart';
 import '../generated/app_localizations.dart';
@@ -21,23 +22,16 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeElectionMetadata();
     _loadResults();
     _startListening();
   }
 
-  /// Initialize election metadata from ElectionProvider
-  void _initializeElectionMetadata() {
-    final electionProvider = context.read<ElectionProvider>();
-    debugPrint('🔄 Initializing election metadata from ElectionProvider...');
-    debugPrint('   Available elections: ${electionProvider.elections.length}');
-    
-    // Store metadata for all loaded elections
-    for (final election in electionProvider.elections) {
-      debugPrint('   Processing election: ${election.id} -> ${election.name}');
+  /// Sync election metadata with ElectionResultsService
+  void _syncElectionMetadata(List<Election> elections) {
+    // Store metadata for all elections
+    for (final election in elections) {
       ElectionResultsService.instance.storeElectionMetadata(election);
     }
-    debugPrint('✅ Initialized ${electionProvider.elections.length} election metadata entries');
   }
 
   @override
@@ -65,9 +59,9 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
   }
 
   Future<void> _onRefresh() async {
-    // Refresh election metadata first, then results
-    _initializeElectionMetadata();
-    _loadResults();
+    // Trigger election provider refresh which will update metadata via Consumer
+    final electionProvider = context.read<ElectionProvider>();
+    await electionProvider.refreshElections();
   }
 
   void _showElectionDetailModal(ElectionResult result) {
@@ -210,13 +204,27 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
         title: Text(AppLocalizations.of(context).navResults),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
-      body: RefreshIndicator(
-        onRefresh: _onRefresh,
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _electionResults.isEmpty
-                ? _buildEmptyState()
-                : _buildResultsList(),
+      body: Consumer<ElectionProvider>(
+        builder: (context, electionProvider, child) {
+          // Sync metadata whenever elections change
+          _syncElectionMetadata(electionProvider.elections);
+          
+          // Reload results to pick up new metadata
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _loadResults();
+            }
+          });
+          
+          return RefreshIndicator(
+            onRefresh: _onRefresh,
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _electionResults.isEmpty
+                    ? _buildEmptyState()
+                    : _buildResultsList(),
+          );
+        },
       ),
     );
   }

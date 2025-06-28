@@ -60,17 +60,11 @@ class ElectionResultsService {
   /// Store election metadata for results display
   void storeElectionMetadata(Election election) {
     _electionMetadata[election.id] = election;
-    debugPrint('📋 Stored election metadata: ${election.id} -> ${election.name}');
-    debugPrint('   Total metadata entries: ${_electionMetadata.length}');
   }
 
   /// Get all elections that have results
   List<ElectionResult> getAllElectionResults() {
     final results = <ElectionResult>[];
-    
-    debugPrint('🔍 Getting all election results...');
-    debugPrint('   Elections with results: ${_electionResults.keys.toList()}');
-    debugPrint('   Elections with metadata: ${_electionMetadata.keys.toList()}');
     
     for (final entry in _electionResults.entries) {
       final electionId = entry.key;
@@ -78,7 +72,6 @@ class ElectionResultsService {
       final metadata = _electionMetadata[electionId];
       
       final electionName = metadata?.name ?? 'Unknown Election ($electionId)';
-      debugPrint('🏷️ Election $electionId -> Name: $electionName (metadata ${metadata != null ? 'found' : 'missing'})');
       
       results.add(ElectionResult(
         electionId: electionId,

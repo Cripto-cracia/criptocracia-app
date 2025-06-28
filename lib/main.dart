@@ -141,7 +141,6 @@ class _MainScreenState extends State<MainScreen> {
   void _loadElectionsOnStartup() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        debugPrint('🚀 Loading elections on app startup for metadata...');
         context.read<ElectionProvider>().loadElections();
       }
     });

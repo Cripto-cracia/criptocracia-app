@@ -81,7 +81,6 @@ class ElectionProvider with ChangeNotifier {
 
               // Store election metadata for results service
               ElectionResultsService.instance.storeElectionMetadata(election);
-              debugPrint('📋 Stored election metadata for results: ${election.name}');
 
               // Update existing election or add new one
               final existingIndex = _elections.indexWhere(
