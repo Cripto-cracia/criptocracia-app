@@ -22,8 +22,24 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
   @override
   void initState() {
     super.initState();
+    _initializeElectionMetadata();
     _loadResults();
     _startListening();
+  }
+
+  /// Initialize election metadata and listen for changes
+  void _initializeElectionMetadata() {
+    final electionProvider = context.read<ElectionProvider>();
+    _syncElectionMetadata(electionProvider.elections);
+    
+    // Listen for new elections
+    electionProvider.addListener(_onElectionsChanged);
+  }
+
+  void _onElectionsChanged() {
+    final electionProvider = context.read<ElectionProvider>();
+    _syncElectionMetadata(electionProvider.elections);
+    _loadResults(); // Reload to pick up new metadata
   }
 
   /// Sync election metadata with ElectionResultsService
@@ -37,6 +53,8 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
   @override
   void dispose() {
     _resultsSubscription?.cancel();
+    final electionProvider = context.read<ElectionProvider>();
+    electionProvider.removeListener(_onElectionsChanged);
     super.dispose();
   }
 
@@ -204,27 +222,13 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
         title: Text(AppLocalizations.of(context).navResults),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
-      body: Consumer<ElectionProvider>(
-        builder: (context, electionProvider, child) {
-          // Sync metadata whenever elections change
-          _syncElectionMetadata(electionProvider.elections);
-          
-          // Reload results to pick up new metadata
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              _loadResults();
-            }
-          });
-          
-          return RefreshIndicator(
-            onRefresh: _onRefresh,
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _electionResults.isEmpty
-                    ? _buildEmptyState()
-                    : _buildResultsList(),
-          );
-        },
+      body: RefreshIndicator(
+        onRefresh: _onRefresh,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _electionResults.isEmpty
+                ? _buildEmptyState()
+                : _buildResultsList(),
       ),
     );
   }
@@ -281,8 +285,6 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
   }
 
   Widget _buildElectionResultCard(ElectionResult result) {
-    final winningCandidate = result.getWinningCandidate();
-    
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -332,14 +334,6 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
                     'Candidates',
                     result.candidateVotes.length.toString(),
                   ),
-                  if (winningCandidate != null) ...[
-                    const SizedBox(width: 24),
-                    _buildQuickStat(
-                      Icons.emoji_events,
-                      'Leading',
-                      'ID $winningCandidate',
-                    ),
-                  ],
                 ],
               ),
               const SizedBox(height: 8),

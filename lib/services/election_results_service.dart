@@ -19,6 +19,9 @@ class ElectionResultsService {
   // Election metadata storage: electionId -> Election
   final Map<String, Election> _electionMetadata = {};
   
+  // Last update times: electionId -> DateTime
+  final Map<String, DateTime> _lastUpdateTimes = {};
+  
   // Stream controller to notify listeners of results changes
   final StreamController<String> _resultsUpdateController = 
       StreamController<String>.broadcast();
@@ -77,7 +80,7 @@ class ElectionResultsService {
         electionId: electionId,
         electionName: electionName,
         candidateVotes: Map.from(candidateVotes),
-        lastUpdate: DateTime.now(), // TODO: Track actual update time
+        lastUpdate: _lastUpdateTimes[electionId] ?? DateTime.now(),
       ));
     }
     
@@ -123,6 +126,7 @@ class ElectionResultsService {
         }
         
         _electionResults[electionId] = candidateVotes;
+        _lastUpdateTimes[electionId] = DateTime.now(); // Store actual update time
         debugPrint('✅ Results updated for election $electionId: $candidateVotes');
         _resultsUpdateController.add(electionId);
       }
