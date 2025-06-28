@@ -296,11 +296,32 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      result.electionName,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          result.electionName,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(result.electionStatus),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            _getStatusDisplayText(result.electionStatus),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   Icon(
@@ -519,9 +540,9 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
 
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
-      case 'finished':
-        return Colors.green;
       case 'in-progress':
+        return Colors.green;
+      case 'finished':
         return Colors.blue;
       case 'canceled':
         return Colors.red;
@@ -534,14 +555,14 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
   String _getStatusDisplayText(String status) {
     switch (status.toLowerCase()) {
       case 'in-progress':
-        return 'In Progress';
+        return AppLocalizations.of(context).statusInProgress;
       case 'finished':
-        return 'Finished';
+        return AppLocalizations.of(context).statusFinished;
       case 'canceled':
-        return 'Canceled';
+        return AppLocalizations.of(context).statusCanceled;
       case 'open':
       default:
-        return 'Open';
+        return AppLocalizations.of(context).statusOpen;
     }
   }
 }
