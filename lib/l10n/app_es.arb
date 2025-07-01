@@ -154,5 +154,9 @@
   "connectionStats": "Estadísticas de Conexión",
   "totalRelays": "Total",
   "connectedRelays": "Conectados",
-  "disconnectedRelays": "Desconectados"
+  "disconnectedRelays": "Desconectados",
+  "versionInfo": "Información de Versión",
+  "appVersion": "Versión de la App",
+  "buildNumber": "Build",
+  "gitCommit": "Commit de Git"
 }

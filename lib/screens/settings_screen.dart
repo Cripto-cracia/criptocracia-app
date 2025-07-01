@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../generated/app_localizations.dart';
 import '../providers/settings_provider.dart';
 import '../models/relay_status.dart';
@@ -65,6 +66,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildEcKeySection(context, settingsProvider),
                 const SizedBox(height: 32),
                 _buildConnectionStatsSection(context, settingsProvider),
+                const SizedBox(height: 32),
+                _buildVersionInfo(context),
               ],
             ),
           );
@@ -316,6 +319,81 @@ class _SettingsScreenState extends State<SettingsScreen> {
           textAlign: TextAlign.center,
         ),
       ],
+    );
+  }
+
+  Widget _buildVersionInfo(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              AppLocalizations.of(context).versionInfo,
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 16),
+            FutureBuilder<PackageInfo>(
+              future: PackageInfo.fromPlatform(),
+              builder: (context, snapshot) {
+                if (snapshot.hasData) {
+                  final packageInfo = snapshot.data!;
+                  return Column(
+                    children: [
+                      _buildInfoRow(
+                        context,
+                        AppLocalizations.of(context).appVersion,
+                        packageInfo.version,
+                      ),
+                      if (packageInfo.buildNumber.isNotEmpty)
+                        _buildInfoRow(
+                          context,
+                          AppLocalizations.of(context).buildNumber,
+                          packageInfo.buildNumber,
+                        ),
+                      _buildInfoRow(
+                        context,
+                        AppLocalizations.of(context).gitCommit,
+                        '3b9d154',
+                        monospace: true,
+                      ),
+                    ],
+                  );
+                } else {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(BuildContext context, String label, String value, {bool monospace = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontFamily: monospace ? 'monospace' : null,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

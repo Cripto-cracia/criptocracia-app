@@ -688,5 +688,21 @@
   "disconnectedRelays": "Disconnected",
   "@disconnectedRelays": {
     "description": "Disconnected relays stat label"
+  },
+  "versionInfo": "Version Information",
+  "@versionInfo": {
+    "description": "Version information section title"
+  },
+  "appVersion": "App Version",
+  "@appVersion": {
+    "description": "App version label"
+  },
+  "buildNumber": "Build",
+  "@buildNumber": {
+    "description": "Build number label"
+  },
+  "gitCommit": "Git Commit",
+  "@gitCommit": {
+    "description": "Git commit label"
   }
 }
