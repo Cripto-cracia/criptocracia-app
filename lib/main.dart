@@ -205,6 +205,12 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: Image.asset(
+          'assets/images/dark-logo.png',
+          height: 32,
+          fit: BoxFit.contain,
+        ),
+        centerTitle: true,
         actions: [
           if (AppConfig.debugMode)
             IconButton(
@@ -243,10 +249,11 @@ class _MainScreenState extends State<MainScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Icon(
-                  Icons.how_to_vote,
-                  size: 32,
-                  color: Theme.of(context).colorScheme.onPrimary,
+                Image.asset(
+                  'assets/images/app_logo.png',
+                  height: 32,
+                  width: 32,
+                  fit: BoxFit.contain,
                 ),
                 const SizedBox(height: 8),
                 Text(
