@@ -91,10 +91,6 @@ jobs:
         if: steps.should_build.outputs.SHOULD_BUILD == 'true'
         run: flutter pub get
 
-      - name: Generate localization and other required files
-        if: steps.should_build.outputs.SHOULD_BUILD == 'true'
-        run: dart run build_runner build -d
-
       - name: Extract version from pubspec.yaml
         if: steps.should_build.outputs.SHOULD_BUILD == 'true'
         id: extract_version
