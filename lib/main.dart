@@ -5,9 +5,11 @@ import 'package:provider/provider.dart';
 import 'config/app_config.dart';
 import 'providers/election_provider.dart';
 import 'providers/results_provider.dart';
+import 'providers/settings_provider.dart';
 import 'screens/elections_screen.dart';
 import 'screens/elections_results_screen.dart';
 import 'screens/account_screen.dart';
+import 'screens/settings_screen.dart';
 import 'services/nostr_key_manager.dart';
 import 'services/secure_storage_service.dart';
 import 'services/nostr_service.dart';
@@ -69,6 +71,7 @@ class CriptocraciaApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => ElectionProvider()),
         ChangeNotifierProvider(create: (_) => ResultsProvider()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider.instance),
       ],
       child: MaterialApp(
         title: 'Criptocracia',
@@ -292,6 +295,18 @@ class _MainScreenState extends State<MainScreen> {
               );
             },
           ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.settings),
+            title: Text(AppLocalizations.of(context).settings),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
+          ),
           if (AppConfig.debugMode) ...[
             const Divider(),
             ListTile(
@@ -326,7 +341,7 @@ class _MainScreenState extends State<MainScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(AppLocalizations.of(context).relayUrl(AppConfig.relayUrls.join(', '))),
+            Text(AppLocalizations.of(context).relayUrlDebug(AppConfig.relayUrls.join(', '))),
             Text(AppLocalizations.of(context).ecPublicKey(AppConfig.ecPublicKey)),
             Text(AppLocalizations.of(context).debugMode(AppConfig.debugMode.toString())),
             Text(AppLocalizations.of(context).configured(AppConfig.isConfigured.toString())),

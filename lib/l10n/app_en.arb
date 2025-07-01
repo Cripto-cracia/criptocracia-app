@@ -39,9 +39,9 @@
   "@debugInformation": {
     "description": "Debug information dialog title"
   },
-  "relayUrl": "Relay URL: {url}",
-  "@relayUrl": {
-    "description": "Debug info relay URL",
+  "relayUrlDebug": "Relay URLs: {url}",
+  "@relayUrlDebug": {
+    "description": "Debug info relay URLs",
     "placeholders": {
       "url": {
         "type": "String"
@@ -511,5 +511,182 @@
         "type": "String"
       }
     }
+  },
+
+  "settings": "Settings",
+  "@settings": {
+    "description": "Settings screen title"
+  },
+  "relayManagement": "Relay Management",
+  "@relayManagement": {
+    "description": "Relay management section title"
+  },
+  "relayManagementDescription": "Manage your Nostr relay connections for enhanced reliability and performance.",
+  "@relayManagementDescription": {
+    "description": "Relay management section description"
+  },
+  "addRelay": "Add Relay",
+  "@addRelay": {
+    "description": "Add relay button"
+  },
+  "editRelay": "Edit Relay",
+  "@editRelay": {
+    "description": "Edit relay button"
+  },
+  "deleteRelay": "Delete Relay",
+  "@deleteRelay": {
+    "description": "Delete relay button"
+  },
+  "relayUrl": "Relay URL",
+  "@relayUrl": {
+    "description": "Relay URL input label"
+  },
+  "statusConnected": "Connected",
+  "@statusConnected": {
+    "description": "Connected status"
+  },
+  "statusDisconnected": "Disconnected",
+  "@statusDisconnected": {
+    "description": "Disconnected status"
+  },
+  "statusUnknown": "Unknown",
+  "@statusUnknown": {
+    "description": "Unknown status"
+  },
+  "lastSeenJustNow": "Just now",
+  "@lastSeenJustNow": {
+    "description": "Last seen just now"
+  },
+  "lastSeenMinutesAgo": "{minutes}m ago",
+  "@lastSeenMinutesAgo": {
+    "description": "Last seen minutes ago",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "lastSeenHoursAgo": "{hours}h ago",
+  "@lastSeenHoursAgo": {
+    "description": "Last seen hours ago",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "errorPrefix": "Error: {error}",
+  "@errorPrefix": {
+    "description": "Error prefix with message",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "refreshRelayStatuses": "Refresh Relay Statuses",
+  "@refreshRelayStatuses": {
+    "description": "Refresh relay statuses tooltip"
+  },
+  "relayStatusesRefreshed": "Relay statuses refreshed",
+  "@relayStatusesRefreshed": {
+    "description": "Relay statuses refreshed message"
+  },
+  "errorRefreshingStatuses": "Error refreshing statuses",
+  "@errorRefreshingStatuses": {
+    "description": "Error refreshing statuses message"
+  },
+  "relayAdded": "Relay added successfully",
+  "@relayAdded": {
+    "description": "Relay added success message"
+  },
+  "failedToAddRelay": "Failed to add relay",
+  "@failedToAddRelay": {
+    "description": "Failed to add relay message"
+  },
+  "relayUpdated": "Relay updated successfully",
+  "@relayUpdated": {
+    "description": "Relay updated success message"
+  },
+  "failedToUpdateRelay": "Failed to update relay",
+  "@failedToUpdateRelay": {
+    "description": "Failed to update relay message"
+  },
+  "relayDeleted": "Relay deleted successfully",
+  "@relayDeleted": {
+    "description": "Relay deleted success message"
+  },
+  "failedToDeleteRelay": "Failed to delete relay",
+  "@failedToDeleteRelay": {
+    "description": "Failed to delete relay message"
+  },
+  "confirmDeleteRelay": "Delete Relay",
+  "@confirmDeleteRelay": {
+    "description": "Confirm delete relay dialog title"
+  },
+  "deleteRelayConfirmation": "Are you sure you want to delete the relay '{url}'?",
+  "@deleteRelayConfirmation": {
+    "description": "Delete relay confirmation message",
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "add": "Add",
+  "@add": {
+    "description": "Add button"
+  },
+  "update": "Update",
+  "@update": {
+    "description": "Update button"
+  },
+  "delete": "Delete",
+  "@delete": {
+    "description": "Delete button"
+  },
+  "ecPublicKeyTitle": "Election Commission Public Key",
+  "@ecPublicKeyTitle": {
+    "description": "EC public key section title"
+  },
+  "ecPublicKeyDescription": "The public key of the Election Commission used for vote validation and blind signature verification.",
+  "@ecPublicKeyDescription": {
+    "description": "EC public key section description"
+  },
+  "ecPublicKeyLabel": "EC Public Key",
+  "@ecPublicKeyLabel": {
+    "description": "EC public key input label"
+  },
+  "ecPublicKeyHint": "64-character hexadecimal key",
+  "@ecPublicKeyHint": {
+    "description": "EC public key input hint"
+  },
+  "saveEcKey": "Save EC Key",
+  "@saveEcKey": {
+    "description": "Save EC key button tooltip"
+  },
+  "ecKeyUpdatedSuccessfully": "EC public key updated successfully",
+  "@ecKeyUpdatedSuccessfully": {
+    "description": "EC key updated success message"
+  },
+  "invalidEcKeyFormat": "Invalid EC public key format",
+  "@invalidEcKeyFormat": {
+    "description": "Invalid EC key format error message"
+  },
+  "connectionStats": "Connection Statistics",
+  "@connectionStats": {
+    "description": "Connection statistics section title"
+  },
+  "totalRelays": "Total",
+  "@totalRelays": {
+    "description": "Total relays stat label"
+  },
+  "connectedRelays": "Connected",
+  "@connectedRelays": {
+    "description": "Connected relays stat label"
+  },
+  "disconnectedRelays": "Disconnected",
+  "@disconnectedRelays": {
+    "description": "Disconnected relays stat label"
   }
 }
