@@ -5,6 +5,13 @@ All notable changes to the Criptocracia Flutter voter app are documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2025-01-01
+
+### Fixed
+- **GitHub Workflow**: Fixed automatic release workflow by removing unnecessary build_runner step
+- **CI/CD Pipeline**: Resolved "Could not find package build_runner" error in GitHub Actions
+- **Build Process**: Streamlined workflow to use Flutter's native localization system
+
 ## [0.2.0] - 2025-01-01
 
 ### Added
