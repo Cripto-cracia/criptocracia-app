@@ -153,7 +153,7 @@ class _MainScreenState extends State<MainScreen> {
       final nostrService = NostrService.instance;
       
       // Connect to the relay
-      await nostrService.connect(AppConfig.relayUrl);
+      await nostrService.connect(AppConfig.relayUrls);
       
       // Subscribe to ALL election results events from EC
       final electionResultsStream = nostrService.subscribeToAllElectionResults(AppConfig.ecPublicKey);
@@ -326,7 +326,7 @@ class _MainScreenState extends State<MainScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(AppLocalizations.of(context).relayUrl(AppConfig.relayUrl)),
+            Text(AppLocalizations.of(context).relayUrl(AppConfig.relayUrls.join(', '))),
             Text(AppLocalizations.of(context).ecPublicKey(AppConfig.ecPublicKey)),
             Text(AppLocalizations.of(context).debugMode(AppConfig.debugMode.toString())),
             Text(AppLocalizations.of(context).configured(AppConfig.isConfigured.toString())),

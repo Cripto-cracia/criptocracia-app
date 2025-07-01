@@ -40,7 +40,7 @@ class ResultsProvider with ChangeNotifier {
       _loadExistingResults(electionId);
       
       // Connect to relay
-      await _nostrService.connect(AppConfig.relayUrl);
+      await _nostrService.connect(AppConfig.relayUrls);
       
       // Start listening to real-time results events for this specific election
       final resultsStream = _nostrService.subscribeToElectionResults(

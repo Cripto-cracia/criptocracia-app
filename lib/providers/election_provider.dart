@@ -32,7 +32,7 @@ class ElectionProvider with ChangeNotifier {
       return;
     }
 
-    debugPrint('⚙️ App configured with relay: ${AppConfig.relayUrl}');
+    debugPrint('⚙️ App configured with relays: ${AppConfig.relayUrls.join(', ')}');
 
     _isLoading = true;
     _error = null;
@@ -40,7 +40,7 @@ class ElectionProvider with ChangeNotifier {
 
     try {
       debugPrint('🔌 Connecting to Nostr service...');
-      await _nostrService.connect(AppConfig.relayUrl);
+      await _nostrService.connect(AppConfig.relayUrls);
 
       // Listen for election events
       debugPrint('👂 Starting to listen for election events...');

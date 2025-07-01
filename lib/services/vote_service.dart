@@ -171,7 +171,7 @@ class VoteService {
       // Ensure connection to relay
       if (!nostrService.isConnected) {
         debugPrint('🔌 Connecting to relay first...');
-        await nostrService.connect(AppConfig.relayUrl);
+        await nostrService.connect(AppConfig.relayUrls);
       }
 
       // Send the vote message via Gift Wrap to EC's public key

@@ -38,7 +38,7 @@ class NostrService {
   /// Stream of error messages during message processing
   Stream<String> get errorStream => _errorController.stream;
 
-  Future<void> connect(String relayUrl) async {
+  Future<void> connect(List<String> relayUrls) async {
     if (_connected) {
       debugPrint('🔗 Already connected to relay');
       return;
@@ -57,14 +57,14 @@ class NostrService {
 
     try {
       _connecting = true;
-      debugPrint('🔗 Attempting to connect to Nostr relay: $relayUrl');
+      debugPrint('🔗 Attempting to connect to Nostr relays: ${relayUrls.join(', ')}');
 
       // Initialize dart_nostr with the relay
       _nostr = dart_nostr.Nostr.instance;
 
       // Use timeout for relay initialization
       await Future.any([
-        _nostr.services.relays.init(relaysUrl: [relayUrl]),
+        _nostr.services.relays.init(relaysUrl: relayUrls),
         Future.delayed(const Duration(seconds: 10)).then(
           (_) => throw TimeoutException(
             'Relay connection timeout',
@@ -78,7 +78,7 @@ class NostrService {
       SubscriptionManager.instance.initialize(_nostr);
 
       _connected = true;
-      debugPrint('✅ Successfully connected to Nostr relay: $relayUrl');
+      debugPrint('✅ Successfully connected to Nostr relays: ${relayUrls.join(', ')}');
     } catch (e) {
       _connected = false;
       debugPrint('❌ Failed to connect to Nostr relay: $e');
