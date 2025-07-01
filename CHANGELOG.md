@@ -5,6 +5,28 @@ All notable changes to the Criptocracia Flutter voter app are documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-01-01
+
+### Added
+- **App Logo Integration**: Centered dark logo in main AppBar for improved branding
+- **Drawer Visual Enhancement**: App logo in drawer header replacing generic voting icon
+- **Comprehensive Settings Screen**: Full settings interface with organized sections
+- **Multi-Relay Support**: Enhanced Nostr connectivity with multiple relay management
+- **Real-time Relay Monitoring**: Live connection status indicators and statistics
+- **EC Public Key Configuration**: Settings interface for Election Commission public key management
+- **Version Information Display**: App version, build number, and git commit info in settings
+- **Connection Statistics**: Total, connected, and disconnected relay counters
+- **Relay Management Operations**: Add, edit, delete relay functionality with validation
+
+### Changed
+- **Visual Branding Consistency**: Unified logo usage throughout the application interface
+- **Settings Organization**: Better structured settings with clear sections and descriptions
+- **Relay Architecture**: Migrated from single relay to multi-relay support for reliability
+
+### Fixed
+- **Flutter Analysis Compliance**: Resolved all static analysis warnings and info messages
+- **Code Quality Improvements**: Enhanced maintainability and type safety
+
 ## [Unreleased]
 
 ### Added
