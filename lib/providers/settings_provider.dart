@@ -13,9 +13,9 @@ class SettingsProvider with ChangeNotifier {
 
   SettingsProvider._internal();
 
-  List<String> _relayUrls = List.from(AppConfig.relayUrls);
+  final List<String> _relayUrls = List.from(AppConfig.relayUrls);
   String _ecPublicKey = AppConfig.ecPublicKey;
-  Map<String, RelayStatus> _relayStatuses = {};
+  final Map<String, RelayStatus> _relayStatuses = {};
   Timer? _statusCheckTimer;
   
   // Getters

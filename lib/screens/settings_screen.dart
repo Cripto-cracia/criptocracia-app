@@ -38,7 +38,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(AppLocalizations.of(context)!.settings),
+        title: Text(AppLocalizations.of(context).settings),
         actions: [
           IconButton(
             icon: _isRefreshing
@@ -49,7 +49,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   )
                 : const Icon(Icons.refresh),
             onPressed: _isRefreshing ? null : _refreshRelayStatuses,
-            tooltip: AppLocalizations.of(context)!.refreshRelayStatuses,
+            tooltip: AppLocalizations.of(context).refreshRelayStatuses,
           ),
         ],
       ),
@@ -81,25 +81,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              AppLocalizations.of(context)!.relayManagement,
+              AppLocalizations.of(context).relayManagement,
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
             Text(
-              AppLocalizations.of(context)!.relayManagementDescription,
+              AppLocalizations.of(context).relayManagementDescription,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 16),
-            ...settingsProvider.relayUrls.map((url) => _buildRelayItem(context, settingsProvider, url)).toList(),
+            ...settingsProvider.relayUrls.map((url) => _buildRelayItem(context, settingsProvider, url)),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: () => _showAddRelayDialog(context, settingsProvider),
                 icon: const Icon(Icons.add),
-                label: Text(AppLocalizations.of(context)!.addRelay),
+                label: Text(AppLocalizations.of(context).addRelay),
               ),
             ),
           ],
@@ -126,13 +126,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             IconButton(
               icon: const Icon(Icons.edit),
               onPressed: () => _showEditRelayDialog(context, settingsProvider, url),
-              tooltip: AppLocalizations.of(context)!.editRelay,
+              tooltip: AppLocalizations.of(context).editRelay,
             ),
             if (settingsProvider.relayUrls.length > 1)
               IconButton(
                 icon: const Icon(Icons.delete),
                 onPressed: () => _showDeleteRelayDialog(context, settingsProvider, url),
-                tooltip: AppLocalizations.of(context)!.deleteRelay,
+                tooltip: AppLocalizations.of(context).deleteRelay,
               ),
           ],
         ),
@@ -169,15 +169,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildStatusSubtitle(BuildContext context, RelayStatus? status) {
     if (status == null) {
-      return Text(AppLocalizations.of(context)!.statusUnknown);
+      return Text(AppLocalizations.of(context).statusUnknown);
     }
 
     final List<String> parts = [];
     
     if (status.isConnected) {
-      parts.add(AppLocalizations.of(context)!.statusConnected);
+      parts.add(AppLocalizations.of(context).statusConnected);
     } else {
-      parts.add(AppLocalizations.of(context)!.statusDisconnected);
+      parts.add(AppLocalizations.of(context).statusDisconnected);
     }
 
     if (status.latencyMs != null) {
@@ -187,16 +187,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (status.lastSeen != null) {
       final diff = DateTime.now().difference(status.lastSeen!);
       if (diff.inMinutes < 1) {
-        parts.add(AppLocalizations.of(context)!.lastSeenJustNow);
+        parts.add(AppLocalizations.of(context).lastSeenJustNow);
       } else if (diff.inHours < 1) {
-        parts.add(AppLocalizations.of(context)!.lastSeenMinutesAgo(diff.inMinutes));
+        parts.add(AppLocalizations.of(context).lastSeenMinutesAgo(diff.inMinutes));
       } else {
-        parts.add(AppLocalizations.of(context)!.lastSeenHoursAgo(diff.inHours));
+        parts.add(AppLocalizations.of(context).lastSeenHoursAgo(diff.inHours));
       }
     }
 
     if (status.error != null) {
-      parts.add(AppLocalizations.of(context)!.errorPrefix(status.error!));
+      parts.add(AppLocalizations.of(context).errorPrefix(status.error!));
     }
 
     return Text(
@@ -215,12 +215,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              AppLocalizations.of(context)!.ecPublicKeyTitle,
+              AppLocalizations.of(context).ecPublicKeyTitle,
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
             Text(
-              AppLocalizations.of(context)!.ecPublicKeyDescription,
+              AppLocalizations.of(context).ecPublicKeyDescription,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -229,13 +229,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             TextField(
               controller: _ecKeyController,
               decoration: InputDecoration(
-                labelText: AppLocalizations.of(context)!.ecPublicKeyLabel,
-                hintText: AppLocalizations.of(context)!.ecPublicKeyHint,
+                labelText: AppLocalizations.of(context).ecPublicKeyLabel,
+                hintText: AppLocalizations.of(context).ecPublicKeyHint,
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.save),
                   onPressed: () => _saveEcKey(context, settingsProvider),
-                  tooltip: AppLocalizations.of(context)!.saveEcKey,
+                  tooltip: AppLocalizations.of(context).saveEcKey,
                 ),
               ),
               maxLength: 64,
@@ -259,7 +259,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              AppLocalizations.of(context)!.connectionStats,
+              AppLocalizations.of(context).connectionStats,
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 16),
@@ -268,19 +268,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 _buildStatItem(
                   context,
-                  AppLocalizations.of(context)!.totalRelays,
+                  AppLocalizations.of(context).totalRelays,
                   stats['total']!,
                   Colors.blue,
                 ),
                 _buildStatItem(
                   context,
-                  AppLocalizations.of(context)!.connectedRelays,
+                  AppLocalizations.of(context).connectedRelays,
                   stats['connected']!,
                   Colors.green,
                 ),
                 _buildStatItem(
                   context,
-                  AppLocalizations.of(context)!.disconnectedRelays,
+                  AppLocalizations.of(context).disconnectedRelays,
                   stats['disconnected']!,
                   Colors.red,
                 ),
@@ -329,7 +329,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.relayStatusesRefreshed),
+            content: Text(AppLocalizations.of(context).relayStatusesRefreshed),
             backgroundColor: Colors.green,
           ),
         );
@@ -338,7 +338,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.errorRefreshingStatuses),
+            content: Text(AppLocalizations.of(context).errorRefreshingStatuses),
             backgroundColor: Colors.red,
           ),
         );
@@ -356,14 +356,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (settingsProvider.updateEcPublicKey(newKey)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)!.ecKeyUpdatedSuccessfully),
+          content: Text(AppLocalizations.of(context).ecKeyUpdatedSuccessfully),
           backgroundColor: Colors.green,
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)!.invalidEcKeyFormat),
+          content: Text(AppLocalizations.of(context).invalidEcKeyFormat),
           backgroundColor: Colors.red,
         ),
       );
@@ -376,11 +376,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.of(context)!.addRelay),
+        title: Text(AppLocalizations.of(context).addRelay),
         content: TextField(
           controller: _relayController,
           decoration: InputDecoration(
-            labelText: AppLocalizations.of(context)!.relayUrl,
+            labelText: AppLocalizations.of(context).relayUrl,
             hintText: 'wss://relay.example.com',
             border: const OutlineInputBorder(),
           ),
@@ -389,7 +389,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(AppLocalizations.of(context)!.cancel),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           TextButton(
             onPressed: () async {
@@ -401,15 +401,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(success
-                          ? AppLocalizations.of(context)!.relayAdded
-                          : AppLocalizations.of(context)!.failedToAddRelay),
+                          ? AppLocalizations.of(context).relayAdded
+                          : AppLocalizations.of(context).failedToAddRelay),
                       backgroundColor: success ? Colors.green : Colors.red,
                     ),
                   );
                 }
               }
             },
-            child: Text(AppLocalizations.of(context)!.add),
+            child: Text(AppLocalizations.of(context).add),
           ),
         ],
       ),
@@ -422,11 +422,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.of(context)!.editRelay),
+        title: Text(AppLocalizations.of(context).editRelay),
         content: TextField(
           controller: _relayController,
           decoration: InputDecoration(
-            labelText: AppLocalizations.of(context)!.relayUrl,
+            labelText: AppLocalizations.of(context).relayUrl,
             border: const OutlineInputBorder(),
           ),
           autofocus: true,
@@ -434,7 +434,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(AppLocalizations.of(context)!.cancel),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           TextButton(
             onPressed: () async {
@@ -446,15 +446,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(success
-                          ? AppLocalizations.of(context)!.relayUpdated
-                          : AppLocalizations.of(context)!.failedToUpdateRelay),
+                          ? AppLocalizations.of(context).relayUpdated
+                          : AppLocalizations.of(context).failedToUpdateRelay),
                       backgroundColor: success ? Colors.green : Colors.red,
                     ),
                   );
                 }
               }
             },
-            child: Text(AppLocalizations.of(context)!.update),
+            child: Text(AppLocalizations.of(context).update),
           ),
         ],
       ),
@@ -465,12 +465,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.of(context)!.confirmDeleteRelay),
-        content: Text(AppLocalizations.of(context)!.deleteRelayConfirmation(url)),
+        title: Text(AppLocalizations.of(context).confirmDeleteRelay),
+        content: Text(AppLocalizations.of(context).deleteRelayConfirmation(url)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(AppLocalizations.of(context)!.cancel),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           TextButton(
             onPressed: () async {
@@ -480,14 +480,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(success
-                        ? AppLocalizations.of(context)!.relayDeleted
-                        : AppLocalizations.of(context)!.failedToDeleteRelay),
+                        ? AppLocalizations.of(context).relayDeleted
+                        : AppLocalizations.of(context).failedToDeleteRelay),
                     backgroundColor: success ? Colors.green : Colors.red,
                   ),
                 );
               }
             },
-            child: Text(AppLocalizations.of(context)!.delete),
+            child: Text(AppLocalizations.of(context).delete),
           ),
         ],
       ),
