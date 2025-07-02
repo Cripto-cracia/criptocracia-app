@@ -57,7 +57,9 @@ class NostrService {
 
     try {
       _connecting = true;
-      debugPrint('🔗 Attempting to connect to Nostr relays: ${relayUrls.join(', ')}');
+      debugPrint(
+        '🔗 Attempting to connect to Nostr relays: ${relayUrls.join(', ')}',
+      );
 
       // Initialize dart_nostr with the relay
       _nostr = dart_nostr.Nostr.instance;
@@ -78,7 +80,9 @@ class NostrService {
       SubscriptionManager.instance.initialize(_nostr);
 
       _connected = true;
-      debugPrint('✅ Successfully connected to Nostr relays: ${relayUrls.join(', ')}');
+      debugPrint(
+        '✅ Successfully connected to Nostr relays: ${relayUrls.join(', ')}',
+      );
     } catch (e) {
       _connected = false;
       debugPrint('❌ Failed to connect to Nostr relay: $e');
@@ -323,7 +327,6 @@ class NostrService {
     }
   }
 
-
   Future<void> sendBlindSignatureRequest({
     required String ecPubKey,
     required String electionId,
@@ -480,8 +483,7 @@ class NostrService {
     }
   }
 
-
-  Stream<NostrEvent> subscribeToElections() {
+  Stream<NostrEvent> subscribeToElections(String ecPublicKey) {
     if (!_connected) {
       throw Exception('Not connected to relay');
     }
@@ -490,6 +492,8 @@ class NostrService {
     // Note: No 'since' or 'limit' parameters to ensure maximum real-time event reception
     final filter = dart_nostr.NostrFilter(
       kinds: [35000], // Election events only
+      authors: [ecPublicKey],
+      since: DateTime.now().subtract(const Duration(hours: 12)),
     );
 
     debugPrint(
@@ -533,8 +537,10 @@ class NostrService {
           return NostrEvent(
             id: dartNostrEvent.id ?? '',
             pubkey: dartNostrEvent.pubkey,
-            createdAt: (dartNostrEvent.createdAt?.millisecondsSinceEpoch ?? 
-                DateTime.now().millisecondsSinceEpoch) ~/ 1000,
+            createdAt:
+                (dartNostrEvent.createdAt?.millisecondsSinceEpoch ??
+                    DateTime.now().millisecondsSinceEpoch) ~/
+                1000,
             kind: dartNostrEvent.kind ?? 0,
             tags:
                 dartNostrEvent.tags
@@ -551,7 +557,6 @@ class NostrService {
         .asBroadcastStream(); // Make it a broadcast stream to allow multiple listeners
   }
 
-
   /// Subscribe to all election results events from EC public key (kind 35001)
   /// This will store all election results globally and show real-time logs
   Stream<NostrEvent> subscribeToAllElectionResults(String ecPublicKey) {
@@ -562,6 +567,7 @@ class NostrService {
     final filter = dart_nostr.NostrFilter(
       kinds: [35001],
       authors: [ecPublicKey],
+      since: DateTime.now().subtract(const Duration(hours: 12)),
     );
     final controller = StreamController<NostrEvent>.broadcast();
 
@@ -570,36 +576,47 @@ class NostrService {
       onEvent: (dartNostrEvent) {
         final isCorrectKind = dartNostrEvent.kind == 35001;
         final isCorrectAuthor = dartNostrEvent.pubkey == ecPublicKey;
-        final hasDTag = dartNostrEvent.tags?.any(
-          (tag) => tag.length >= 2 && tag[0] == 'd',
-        ) ?? false;
+        final hasDTag =
+            dartNostrEvent.tags?.any(
+              (tag) => tag.length >= 2 && tag[0] == 'd',
+            ) ??
+            false;
 
         if (isCorrectKind && isCorrectAuthor && hasDTag) {
           final dTag = dartNostrEvent.tags?.firstWhere(
             (tag) => tag.length >= 2 && tag[0] == 'd',
             orElse: () => ['d', 'unknown'],
           );
-          final electionId = dTag != null && dTag.length >= 2 ? dTag[1] : 'unknown';
+          final electionId = dTag != null && dTag.length >= 2
+              ? dTag[1]
+              : 'unknown';
 
-          if (dartNostrEvent.content != null && dartNostrEvent.content!.isNotEmpty) {
+          if (dartNostrEvent.content != null &&
+              dartNostrEvent.content!.isNotEmpty) {
             ElectionResultsService.instance.updateResultsFromEventContent(
               electionId,
               dartNostrEvent.content!,
             );
           }
 
-          controller.add(NostrEvent(
-            id: dartNostrEvent.id ?? '',
-            pubkey: dartNostrEvent.pubkey,
-            createdAt: (dartNostrEvent.createdAt?.millisecondsSinceEpoch ?? 
-                DateTime.now().millisecondsSinceEpoch) ~/ 1000,
-            kind: dartNostrEvent.kind ?? 0,
-            tags: dartNostrEvent.tags
-                ?.map((tag) => tag.map((e) => e.toString()).toList())
-                .toList() ?? [],
-            content: dartNostrEvent.content ?? '',
-            sig: dartNostrEvent.sig ?? '',
-          ));
+          controller.add(
+            NostrEvent(
+              id: dartNostrEvent.id ?? '',
+              pubkey: dartNostrEvent.pubkey,
+              createdAt:
+                  (dartNostrEvent.createdAt?.millisecondsSinceEpoch ??
+                      DateTime.now().millisecondsSinceEpoch) ~/
+                  1000,
+              kind: dartNostrEvent.kind ?? 0,
+              tags:
+                  dartNostrEvent.tags
+                      ?.map((tag) => tag.map((e) => e.toString()).toList())
+                      .toList() ??
+                  [],
+              content: dartNostrEvent.content ?? '',
+              sig: dartNostrEvent.sig ?? '',
+            ),
+          );
         }
       },
     );
@@ -643,7 +660,7 @@ class NostrService {
   /// Cleanup all resources when service is disposed
   void dispose() {
     debugPrint('🧹 NostrService: Disposing all resources...');
-    
+
     // Close stream controllers
     if (!_messageController.isClosed) {
       _messageController.close();
@@ -651,15 +668,15 @@ class NostrService {
     if (!_errorController.isClosed) {
       _errorController.close();
     }
-    
+
     // Cancel active subscriptions
     if (_giftWrapHandlerId != null) {
       SubscriptionManager.instance.unsubscribe(_giftWrapHandlerId!);
       _giftWrapHandlerId = null;
     }
-    
+
     SubscriptionManager.instance.dispose();
-    
+
     debugPrint('✅ NostrService: All resources disposed');
   }
 }

@@ -32,7 +32,9 @@ class ElectionProvider with ChangeNotifier {
       return;
     }
 
-    debugPrint('⚙️ App configured with relays: ${AppConfig.relayUrls.join(', ')}');
+    debugPrint(
+      '⚙️ App configured with relays: ${AppConfig.relayUrls.join(', ')}',
+    );
 
     _isLoading = true;
     _error = null;
@@ -44,7 +46,9 @@ class ElectionProvider with ChangeNotifier {
 
       // Listen for election events
       debugPrint('👂 Starting to listen for election events...');
-      final electionsStream = _nostrService.subscribeToElections();
+      final electionsStream = _nostrService.subscribeToElections(
+        AppConfig.ecPublicKey,
+      );
 
       // Give a brief moment for the subscription to establish, then stop loading if no events
       Timer(const Duration(seconds: 1), () {
@@ -90,14 +94,14 @@ class ElectionProvider with ChangeNotifier {
                 // Check for status changes before updating
                 final oldElection = _elections[existingIndex];
                 final statusChanged = oldElection.status != election.status;
-                
+
                 // Update existing election (status change, candidate updates, etc.)
                 _elections = [..._elections];
                 _elections[existingIndex] = election;
                 debugPrint(
                   '🔄 Updated existing election: ${election.name} - Status: ${election.status}',
                 );
-                
+
                 if (statusChanged) {
                   debugPrint('🚨 ELECTION STATUS CHANGED: ${election.id}');
                   debugPrint('   From: ${oldElection.status}');
@@ -149,10 +153,9 @@ class ElectionProvider with ChangeNotifier {
       );
 
       // Keep the subscription alive - don't await for it to complete
-      
+
       // Start periodic refresh as backup for missed real-time events
       _startPeriodicRefresh();
-      
     } catch (e) {
       _error = 'Failed to load elections: $e';
       _isLoading = false;
@@ -188,8 +191,12 @@ class ElectionProvider with ChangeNotifier {
   /// Start periodic refresh to catch missed real-time events
   void _startPeriodicRefresh() {
     _periodicRefreshTimer?.cancel();
-    _periodicRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      debugPrint('🔄 Periodic refresh: checking for missed election updates...');
+    _periodicRefreshTimer = Timer.periodic(const Duration(seconds: 30), (
+      timer,
+    ) {
+      debugPrint(
+        '🔄 Periodic refresh: checking for missed election updates...',
+      );
       _performSilentRefresh();
     });
     debugPrint('⏰ Started periodic refresh every 30 seconds');
@@ -204,8 +211,10 @@ class ElectionProvider with ChangeNotifier {
 
     try {
       // Create a temporary subscription to get latest events
-      final electionsStream = _nostrService.subscribeToElections();
-      
+      final electionsStream = _nostrService.subscribeToElections(
+        AppConfig.ecPublicKey,
+      );
+
       // Listen for a short period to catch any missed events
       final subscription = electionsStream.listen(
         (event) {
@@ -213,14 +222,18 @@ class ElectionProvider with ChangeNotifier {
             try {
               final content = jsonDecode(event.content);
               final election = Election.fromJson(content);
-              
+
               // Store election metadata for results service
               ElectionResultsService.instance.storeElectionMetadata(election);
-              
+
               // Check if this is a new election or an update to existing one
-              final existingIndex = _elections.indexWhere((e) => e.id == election.id);
+              final existingIndex = _elections.indexWhere(
+                (e) => e.id == election.id,
+              );
               if (existingIndex == -1) {
-                debugPrint('🆕 Found new election during refresh: ${election.name}');
+                debugPrint(
+                  '🆕 Found new election during refresh: ${election.name}',
+                );
                 _elections = [..._elections, election];
                 _sortElections();
                 notifyListeners();
@@ -228,8 +241,12 @@ class ElectionProvider with ChangeNotifier {
                 // Check if existing election has been updated
                 final oldElection = _elections[existingIndex];
                 if (oldElection.status != election.status) {
-                  debugPrint('🔄 Found election status update during refresh: ${election.name}');
-                  debugPrint('   Status changed from ${oldElection.status} to ${election.status}');
+                  debugPrint(
+                    '🔄 Found election status update during refresh: ${election.name}',
+                  );
+                  debugPrint(
+                    '   Status changed from ${oldElection.status} to ${election.status}',
+                  );
                   _elections = [..._elections];
                   _elections[existingIndex] = election;
                   _updateSelectedElectionIfMatches(election);
@@ -245,12 +262,11 @@ class ElectionProvider with ChangeNotifier {
           debugPrint('⚠️ Error during periodic refresh: $error');
         },
       );
-      
+
       // Close the temporary subscription after 2 seconds
       Timer(const Duration(seconds: 2), () {
         subscription.cancel();
       });
-      
     } catch (e) {
       debugPrint('❌ Error during periodic refresh: $e');
     }
