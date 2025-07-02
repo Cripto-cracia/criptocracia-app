@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/election.dart';
+import '../generated/app_localizations.dart';
 
 class VoteConfirmationDialog extends StatelessWidget {
   final Candidate candidate;
@@ -24,7 +25,7 @@ class VoteConfirmationDialog extends StatelessWidget {
             size: 28,
           ),
           const SizedBox(width: 12),
-          Text('Confirm Vote'),
+          Text(AppLocalizations.of(context).confirmVote),
         ],
       ),
       content: Column(
@@ -32,7 +33,7 @@ class VoteConfirmationDialog extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'You are about to vote for:',
+            AppLocalizations.of(context).aboutToVoteFor,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w500,
             ),
@@ -91,7 +92,7 @@ class VoteConfirmationDialog extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Important Warning',
+                      AppLocalizations.of(context).importantWarning,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.red[700],
@@ -101,9 +102,9 @@ class VoteConfirmationDialog extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '• This action cannot be reversed\n'
-                  '• Your vote will be submitted anonymously\n'
-                  '• You can only vote once per election',
+                  '${AppLocalizations.of(context).voteIrreversible}\n'
+                  '${AppLocalizations.of(context).voteAnonymous}\n'
+                  '${AppLocalizations.of(context).oneVotePerElection}',
                   style: TextStyle(
                     color: Colors.red[800],
                     fontSize: 14,
@@ -118,7 +119,7 @@ class VoteConfirmationDialog extends StatelessWidget {
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: Text(
-            'Cancel',
+            AppLocalizations.of(context).cancel,
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
             ),
@@ -138,7 +139,7 @@ class VoteConfirmationDialog extends StatelessWidget {
             children: [
               Icon(Icons.how_to_vote, size: 20),
               const SizedBox(width: 8),
-              Text('Confirm Vote'),
+              Text(AppLocalizations.of(context).confirmVote),
             ],
           ),
         ),

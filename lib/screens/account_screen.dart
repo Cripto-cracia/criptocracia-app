@@ -298,7 +298,7 @@ class _AccountScreenState extends State<AccountScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('About NIP-06'),
+        title: Text(AppLocalizations.of(context).aboutNip06),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -332,7 +332,7 @@ class _AccountScreenState extends State<AccountScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Regenerate Keys'),
+        title: Text(AppLocalizations.of(context).regenerateKeys),
         content: Text(
           AppLocalizations.of(context).regenerateKeysConfirmation,
         ),

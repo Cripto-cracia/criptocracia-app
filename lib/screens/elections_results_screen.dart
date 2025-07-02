@@ -152,7 +152,7 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
                         child: Column(
                           children: [
                             Text(
-                              'Election Results',
+                              AppLocalizations.of(context).electionResults,
                               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
@@ -161,8 +161,8 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceAround,
                               children: [
-                                _buildStatItem('Total Votes', result.totalVotes.toString()),
-                                _buildStatItem('Candidates', result.candidateVotes.length.toString()),
+                                _buildStatItem(AppLocalizations.of(context).totalVotesLabel, result.totalVotes.toString()),
+                                _buildStatItem(AppLocalizations.of(context).candidatesLabel, result.candidateVotes.length.toString()),
                               ],
                             ),
                           ],
@@ -182,7 +182,7 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Close'),
+                  child: Text(AppLocalizations.of(context).close),
                 ),
               ),
             ],
@@ -244,7 +244,7 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No Election Results Yet',
+              AppLocalizations.of(context).noElectionResultsYet,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 color: Colors.grey[600],
                 fontWeight: FontWeight.bold,
@@ -252,7 +252,7 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Results will appear here when the Election Coordinator publishes vote counts for elections.',
+              AppLocalizations.of(context).resultsWillAppearHere,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: Colors.grey[500],
               ),
@@ -262,7 +262,7 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
             ElevatedButton.icon(
               onPressed: _onRefresh,
               icon: const Icon(Icons.refresh),
-              label: const Text('Refresh'),
+              label: Text(AppLocalizations.of(context).refresh),
             ),
           ],
         ),
@@ -413,7 +413,7 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No votes recorded yet',
+              AppLocalizations.of(context).noVotesRecordedYet,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: Colors.grey[500],
               ),
@@ -479,7 +479,7 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '$votes votes ($percentage%)',
+                        AppLocalizations.of(context).voteDisplayFormat(votes, percentage),
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Colors.grey[600],
                         ),
@@ -505,7 +505,7 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          result.isFinished ? 'Winner' : 'Leading',
+                          result.isFinished ? AppLocalizations.of(context).winner : AppLocalizations.of(context).leading,
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.onPrimaryContainer,
                             fontSize: 12,

@@ -460,7 +460,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           controller: _relayController,
           decoration: InputDecoration(
             labelText: AppLocalizations.of(context).relayUrl,
-            hintText: 'wss://relay.example.com',
+            hintText: AppLocalizations.of(context).relayUrlPlaceholder,
             border: const OutlineInputBorder(),
           ),
           autofocus: true,

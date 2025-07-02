@@ -704,5 +704,133 @@
   "gitCommit": "Git Commit",
   "@gitCommit": {
     "description": "Git commit label"
+  },
+
+  "initializationError": "Initialization Error",
+  "@initializationError": {
+    "description": "Initialization error dialog title"
+  },
+  "criticalInitializationError": "Critical initialization error:",
+  "@criticalInitializationError": {
+    "description": "Critical initialization error message"
+  },
+
+  "tokenRequestTimeout": "⏰ Token request timeout. The Election Coordinator may be unavailable.",
+  "@tokenRequestTimeout": {
+    "description": "Token request timeout message"
+  },
+  "voteTokenReceived": "✅ Vote token received! You can now vote.",
+  "@voteTokenReceived": {
+    "description": "Vote token received success message"
+  },
+  "requestingVoteToken": "Requesting vote token... Please wait.",
+  "@requestingVoteToken": {
+    "description": "Requesting vote token message"
+  },
+  "needVoteTokenInstruction": "You need to request a vote token first by selecting this election from the elections list.",
+  "@needVoteTokenInstruction": {
+    "description": "Instruction for getting vote token"
+  },
+  "sendingVote": "Sending Vote...",
+  "@sendingVote": {
+    "description": "Sending vote progress message"
+  },
+  "clearSelection": "Clear Selection",
+  "@clearSelection": {
+    "description": "Clear selection button text"
+  },
+  "voteTokenRequired": "Vote Token Required",
+  "@voteTokenRequired": {
+    "description": "Vote token required dialog title"
+  },
+  "voteTokenInstructions": "You need a vote token to cast your vote.",
+  "@voteTokenInstructions": {
+    "description": "Vote token instructions message"
+  },
+  "goToElections": "Go to Elections",
+  "@goToElections": {
+    "description": "Go to elections button text"
+  },
+  "electionNotStarted": "Election Not Started",
+  "@electionNotStarted": {
+    "description": "Election not started dialog title"
+  },
+  "votingPeriodNotStarted": "The voting period for this election has not started yet.",
+  "@votingPeriodNotStarted": {
+    "description": "Voting period not started message"
+  },
+  "canSelectCandidateNow": "You can select your candidate now and vote when the election starts.",
+  "@canSelectCandidateNow": {
+    "description": "Can select candidate now message"
+  },
+
+  "confirmVote": "Confirm Vote",
+  "@confirmVote": {
+    "description": "Confirm vote dialog title"
+  },
+  "aboutToVoteFor": "You are about to vote for:",
+  "@aboutToVoteFor": {
+    "description": "About to vote message"
+  },
+  "importantWarning": "Important Warning",
+  "@importantWarning": {
+    "description": "Important warning section title"
+  },
+  "voteIrreversible": "• Your vote is irreversible and cannot be changed",
+  "@voteIrreversible": {
+    "description": "Vote irreversible warning"
+  },
+  "voteAnonymous": "• Your vote will be anonymous and cryptographically secured",
+  "@voteAnonymous": {
+    "description": "Vote anonymous information"
+  },
+  "oneVotePerElection": "• You can only vote once per election",
+  "@oneVotePerElection": {
+    "description": "One vote per election warning"
+  },
+
+  "noElectionResultsYet": "No Election Results Yet",
+  "@noElectionResultsYet": {
+    "description": "No election results message"
+  },
+  "resultsWillAppearHere": "Results will appear here when the Election Coordinator publishes vote counts for elections.",
+  "@resultsWillAppearHere": {
+    "description": "Results will appear message"
+  },
+  "voteDisplayFormat": "{votes} votes ({percentage}%)",
+  "@voteDisplayFormat": {
+    "description": "Vote display format",
+    "placeholders": {
+      "votes": {
+        "type": "int"
+      },
+      "percentage": {
+        "type": "String"
+      }
+    }
+  },
+  "winner": "Winner",
+  "@winner": {
+    "description": "Winner status label"
+  },
+  "leading": "Leading",
+  "@leading": {
+    "description": "Leading status label"
+  },
+  "relayUrlPlaceholder": "wss://relay.example.com",
+  "@relayUrlPlaceholder": {
+    "description": "Relay URL placeholder text"
+  },
+  "ok": "OK",
+  "@ok": {
+    "description": "OK button text"
+  },
+  "refresh": "Refresh",
+  "@refresh": {
+    "description": "Refresh button text"
+  },
+  "electionResults": "Election Results",
+  "@electionResults": {
+    "description": "Election results title"
   }
 }

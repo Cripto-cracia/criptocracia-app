@@ -158,5 +158,38 @@
   "versionInfo": "Información de Versión",
   "appVersion": "Versión de la App",
   "buildNumber": "Build",
-  "gitCommit": "Commit de Git"
+  "gitCommit": "Commit de Git",
+
+  "initializationError": "Error de Inicialización",
+  "criticalInitializationError": "Error crítico de inicialización:",
+
+  "tokenRequestTimeout": "⏰ Timeout de solicitud de token. El Coordinador Electoral puede no estar disponible.",
+  "voteTokenReceived": "✅ ¡Token de voto recibido! Ya puedes votar.",
+  "requestingVoteToken": "Solicitando token de voto... Por favor espera.",
+  "needVoteTokenInstruction": "Necesitas solicitar un token de voto primero seleccionando esta elección de la lista de elecciones.",
+  "sendingVote": "Enviando Voto...",
+  "clearSelection": "Limpiar Selección",
+  "voteTokenRequired": "Token de Voto Requerido",
+  "voteTokenInstructions": "Necesitas un token de voto para emitir tu voto.",
+  "goToElections": "Ir a Elecciones",
+  "electionNotStarted": "Elección No Iniciada",
+  "votingPeriodNotStarted": "El período de votación para esta elección aún no ha comenzado.",
+  "canSelectCandidateNow": "Puedes seleccionar tu candidato ahora y votar cuando comience la elección.",
+
+  "confirmVote": "Confirmar Voto",
+  "aboutToVoteFor": "Estás a punto de votar por:",
+  "importantWarning": "Advertencia Importante",
+  "voteIrreversible": "• Tu voto es irreversible y no se puede cambiar",
+  "voteAnonymous": "• Tu voto será anónimo y criptográficamente seguro",
+  "oneVotePerElection": "• Solo puedes votar una vez por elección",
+
+  "noElectionResultsYet": "Aún No Hay Resultados Electorales",
+  "resultsWillAppearHere": "Los resultados aparecerán aquí cuando el Coordinador Electoral publique los recuentos de votos para las elecciones.",
+  "voteDisplayFormat": "{votes} votos ({percentage}%)",
+  "winner": "Ganador",
+  "leading": "Liderando",
+  "relayUrlPlaceholder": "wss://relay.ejemplo.com",
+  "ok": "OK",
+  "refresh": "Actualizar",
+  "electionResults": "Resultados Electorales"
 }

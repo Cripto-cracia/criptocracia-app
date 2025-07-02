@@ -111,11 +111,11 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
         // Show timeout message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('⏰ Token request timeout. The Election Coordinator may be unavailable.'),
+            content: Text(AppLocalizations.of(context).tokenRequestTimeout),
             backgroundColor: Colors.orange,
             duration: const Duration(seconds: 6),
             action: SnackBarAction(
-              label: 'Retry',
+              label: AppLocalizations.of(context).retry,
               textColor: Colors.white,
               onPressed: () {
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -162,7 +162,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
               // Show success feedback
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('✅ Vote token received! You can now vote.'),
+                  content: Text(AppLocalizations.of(context).voteTokenReceived),
                   backgroundColor: Colors.green,
                   duration: const Duration(seconds: 3),
                 ),
@@ -512,8 +512,8 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
                     Expanded(
                       child: Text(
                         _isRequestingToken
-                            ? 'Requesting vote token... Please wait.'
-                            : 'You need to request a vote token first by selecting this election from the elections list.',
+                            ? AppLocalizations.of(context).requestingVoteToken
+                            : AppLocalizations.of(context).needVoteTokenInstruction,
                         style: TextStyle(
                           color: _isRequestingToken
                               ? Colors.blue[800]
@@ -547,7 +547,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : Icon(Icons.how_to_vote),
-                      label: Text(_isVoting ? 'Sending Vote...' : 'Vote'),
+                      label: Text(_isVoting ? AppLocalizations.of(context).sendingVote : AppLocalizations.of(context).vote),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).colorScheme.primary,
                         foregroundColor: Colors.white,
@@ -564,7 +564,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
                           ? _clearSelection
                           : null,
                       icon: Icon(Icons.clear),
-                      label: Text('Clear Selection'),
+                      label: Text(AppLocalizations.of(context).clearSelection),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
@@ -666,7 +666,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
           children: [
             Icon(Icons.warning_amber_rounded, color: Colors.orange),
             const SizedBox(width: 12),
-            Text('Vote Token Required'),
+            Text(AppLocalizations.of(context).voteTokenRequired),
           ],
         ),
         content: Column(
@@ -674,7 +674,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'You need a vote token to cast your vote.',
+              AppLocalizations.of(context).voteTokenInstructions,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 16),
@@ -708,14 +708,14 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('OK'),
+            child: Text(AppLocalizations.of(context).ok),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.of(context).pop();
               Navigator.of(context).pop(); // Go back to elections list
             },
-            child: Text('Go to Elections'),
+            child: Text(AppLocalizations.of(context).goToElections),
           ),
         ],
       ),
@@ -730,7 +730,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
           children: [
             Icon(Icons.schedule, color: Colors.blue),
             const SizedBox(width: 12),
-            Text('Election Not Started'),
+            Text(AppLocalizations.of(context).electionNotStarted),
           ],
         ),
         content: Column(
@@ -738,7 +738,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'The voting period for this election has not started yet.',
+              AppLocalizations.of(context).votingPeriodNotStarted,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 16),
@@ -768,7 +768,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'You can select your candidate now and vote when the election starts.',
+              AppLocalizations.of(context).canSelectCandidateNow,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.primary,
                 fontStyle: FontStyle.italic,
@@ -779,7 +779,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('OK'),
+            child: Text(AppLocalizations.of(context).ok),
           ),
         ],
       ),
