@@ -5,6 +5,27 @@ All notable changes to the Criptocracia Flutter voter app are documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2025-01-02
+
+### Added
+- **Complete Internationalization**: Full English and Spanish localization support
+- **Comprehensive ARB Files**: Added 30+ new localization keys covering all UI text
+- **Multilingual Dialogs**: Vote confirmation, error messages, and status indicators
+- **Localized Button Text**: All buttons and interactive elements properly translated
+- **Dynamic Status Messages**: Election status, vote progress, and results in both languages
+
+### Fixed
+- **Missing Localization Import**: Added AppLocalizations import to vote confirmation dialog
+- **Vote Display Format**: Corrected vote display to use proper localized function calls
+- **Hardcoded Strings**: Replaced all remaining hardcoded UI text with localized versions
+- **Static Analysis**: All Flutter analyze issues resolved with clean codebase
+
+### Improved
+- **User Experience**: Complete language support for Spanish-speaking users
+- **Code Quality**: Eliminated all hardcoded user-facing strings
+- **Maintainability**: Centralized all UI text in standard ARB localization files
+- **Accessibility**: Proper localization foundation for future language additions
+
 ## [0.2.2] - 2025-01-01
 
 ### Fixed
