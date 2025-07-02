@@ -5,6 +5,19 @@ All notable changes to the Criptocracia Flutter voter app are documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2025-01-01
+
+### Fixed
+- **Settings Screen AppBar**: Added consistent background color styling to match other screens
+- **GitHub Actions Permissions**: Resolved release creation errors with proper workflow permissions
+- **Visual Consistency**: Ensured uniform AppBar appearance across all application screens
+
+### Improved
+- **Code Formatting**: Enhanced code readability with consistent formatting and line breaks
+- **Election Subscription**: Improved event filtering with EC public key and time-based filtering
+- **Stream Management**: Better error handling and debugging output for Nostr connections
+- **Event Retrieval**: Added 12-hour lookback for more reliable election and results data
+
 ## [0.2.1] - 2025-01-01
 
 ### Fixed
