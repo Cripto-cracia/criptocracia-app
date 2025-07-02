@@ -832,5 +832,17 @@
   "electionResults": "Election Results",
   "@electionResults": {
     "description": "Election results title"
+  },
+  "showQrCode": "Show QR Code",
+  "@showQrCode": {
+    "description": "Show QR code tooltip"
+  },
+  "qrCodeTitle": "Scan me",
+  "@qrCodeTitle": {
+    "description": "QR code modal title"
+  },
+  "qrCodeDescription": "Scan this QR code to share your Nostr public key",
+  "@qrCodeDescription": {
+    "description": "QR code modal description"
   }
 }

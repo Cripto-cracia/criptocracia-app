@@ -67,6 +67,9 @@ dependencies:
   # BIP32/BIP44 hierarchical deterministic key derivation
   blockchain_utils: ^3.0.0
   
+  # QR code generation
+  qr_flutter: ^4.1.0
+  
   # Secure storage
   hive: ^2.2.3
   hive_flutter: ^1.1.0

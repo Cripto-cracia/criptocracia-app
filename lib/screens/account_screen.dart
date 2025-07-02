@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../services/nostr_key_manager.dart';
 import '../generated/app_localizations.dart';
 
@@ -132,6 +133,7 @@ class _AccountScreenState extends State<AccountScreen> {
             value: _keys!['npub'],
             icon: Icons.public,
             onTap: () => _copyToClipboard(_keys!['npub'], AppLocalizations.of(context).publicKeyNpub),
+            onQrTap: () => _showQrCodeDialog(_keys!['npub']),
           ),
           const SizedBox(height: 16),
 
@@ -188,6 +190,7 @@ class _AccountScreenState extends State<AccountScreen> {
     required IconData icon,
     required VoidCallback onTap,
     bool isSecret = false,
+    VoidCallback? onQrTap,
   }) {
     return Card(
       child: InkWell(
@@ -219,7 +222,26 @@ class _AccountScreenState extends State<AccountScreen> {
                       ],
                     ),
                   ),
-                  const Icon(Icons.copy, size: 20),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (onQrTap != null) ...[
+                        GestureDetector(
+                          onTap: onQrTap,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            child: Icon(
+                              Icons.qr_code,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      const Icon(Icons.copy, size: 20),
+                    ],
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -538,5 +560,107 @@ class _AccountScreenState extends State<AccountScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  void _showQrCodeDialog(String npub) {
+    showDialog(
+      context: context,
+      barrierDismissible: true, // Allow tap outside to dismiss
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header with title and close button
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    AppLocalizations.of(context).qrCodeTitle,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                    iconSize: 24,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              
+              // QR Code
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: QrImageView(
+                  data: npub,
+                  version: QrVersions.auto,
+                  size: 200.0,
+                  backgroundColor: Colors.white,
+                  errorCorrectionLevel: QrErrorCorrectLevel.M,
+                  dataModuleStyle: const QrDataModuleStyle(
+                    dataModuleShape: QrDataModuleShape.square,
+                    color: Colors.black,
+                  ),
+                  eyeStyle: const QrEyeStyle(
+                    eyeShape: QrEyeShape.square,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Description
+              Text(
+                AppLocalizations.of(context).qrCodeDescription,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              
+              // Npub text (shortened for display)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${npub.substring(0, 16)}...${npub.substring(npub.length - 8)}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

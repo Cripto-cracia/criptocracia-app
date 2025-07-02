@@ -191,5 +191,8 @@
   "relayUrlPlaceholder": "wss://relay.ejemplo.com",
   "ok": "OK",
   "refresh": "Actualizar",
-  "electionResults": "Resultados Electorales"
+  "electionResults": "Resultados Electorales",
+  "showQrCode": "Mostrar Código QR",
+  "qrCodeTitle": "Escanéame",
+  "qrCodeDescription": "Escanea este código QR para compartir tu clave pública Nostr"
 }
