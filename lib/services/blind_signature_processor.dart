@@ -147,6 +147,10 @@ class BlindSignatureProcessor {
       debugPrint('✅ Vote token stored successfully');
       debugPrint('🎫 Ready to cast vote for election: ${message.id}');
 
+      // Notify UI that vote token is now available
+      VoterSessionService.emitVoteTokenAvailable(message.id);
+      debugPrint('📢 Emitted vote token available event for UI');
+
       return true;
     } catch (e) {
       debugPrint('❌ Error processing blind signature response: $e');

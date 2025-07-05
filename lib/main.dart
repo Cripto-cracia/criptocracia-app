@@ -205,11 +205,7 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Image.asset(
-          'assets/images/dark-logo.png',
-          height: 32,
-          fit: BoxFit.contain,
-        ),
+        title: Text(AppLocalizations.of(context).appTitle),
         centerTitle: true,
         actions: [
           if (AppConfig.debugMode)
