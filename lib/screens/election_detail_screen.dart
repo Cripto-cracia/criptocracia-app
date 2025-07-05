@@ -213,11 +213,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
   void _debugCurrentState() {
     final now = DateTime.now();
     final election = _currentElection ?? widget.election;
-    final isActive =
-        election.status.toLowerCase() == 'in-progress' ||
-        (election.status.toLowerCase() == 'open' &&
-            now.isAfter(election.startTime) &&
-            now.isBefore(election.endTime));
+    final isActive = election.status.toLowerCase() == 'in-progress';
 
     debugPrint('🔍 === CURRENT STATE DEBUG ===');
     debugPrint('   Election ID: ${election.id}');
@@ -256,12 +252,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
           _currentElection = latestElection;
         }
 
-        final now = DateTime.now();
-        final isActive =
-            latestElection.status.toLowerCase() == 'in-progress' ||
-            (latestElection.status.toLowerCase() == 'open' &&
-                now.isAfter(latestElection.startTime) &&
-                now.isBefore(latestElection.endTime));
+        final isActive = latestElection.status.toLowerCase() == 'in-progress';
 
         // Allow candidate selection if election is open or in-progress
         final allowCandidateSelection =
