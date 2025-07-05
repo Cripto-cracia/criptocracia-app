@@ -5,6 +5,28 @@ All notable changes to the Criptocracia Flutter voter app are documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.4] - 2025-01-05
+
+### Added
+- **Enhanced ElectionCard UI**: Modern Material Design 3 styling with gradients and improved visual hierarchy
+- **Time Remaining Indicators**: Smart countdown displays showing "Starts in X" or "Ends in X" for active elections
+- **Linear Progress Bars**: Visual timeline showing election progress with color-coded status indicators
+- **Interactive Animations**: Smooth scale animations on tap with custom splash and highlight colors
+- **Action Hints**: Visual "Tap to view" indicators to improve user guidance and discoverability
+
+### Fixed
+- **Token Processing Notification**: Fixed critical issue where UI wasn't notified when vote tokens were successfully processed
+- **Election Status Synchronization**: Resolved problem where "requesting token" state persisted even after token receipt
+- **Vote Token Recognition**: Eliminated "need vote token" messages when tokens were already available in storage
+- **UI State Management**: Ensured proper communication between token processing service and UI components
+
+### Improved
+- **Election Card Design**: Enhanced spacing, typography, and color contrast for better readability
+- **Status Badge Styling**: Modern badges with transparency effects and better visual differentiation
+- **Accessibility Support**: Added semantic labels and proper screen reader support for election cards
+- **Touch Feedback**: Improved responsive design with proper touch targets for mobile interaction
+- **Visual Consistency**: Replaced AppBar logo with text title for cleaner Material Design compliance
+
 ## [0.2.3] - 2025-01-02
 
 ### Added
