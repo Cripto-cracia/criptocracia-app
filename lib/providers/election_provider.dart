@@ -83,6 +83,21 @@ class ElectionProvider with ChangeNotifier {
                 '✅ Created election: ${election.name} (${election.id})',
               );
 
+              // Apply client-side filtering: only show elections from the last 48 hours
+              final now = DateTime.now();
+              final cutoffTime = now.subtract(const Duration(hours: 48));
+              
+              if (election.startTime.isBefore(cutoffTime) && election.endTime.isBefore(cutoffTime)) {
+                debugPrint(
+                  '⏭️ Skipping old election: ${election.name} (started: ${election.startTime})',
+                );
+                return; // Skip this old election
+              }
+              
+              debugPrint(
+                '📅 Election within 48h window: ${election.name} (started: ${election.startTime})',
+              );
+
               // Store election metadata for results service
               ElectionResultsService.instance.storeElectionMetadata(election);
 
@@ -222,6 +237,17 @@ class ElectionProvider with ChangeNotifier {
             try {
               final content = jsonDecode(event.content);
               final election = Election.fromJson(content);
+
+              // Apply client-side filtering: only show elections from the last 48 hours
+              final now = DateTime.now();
+              final cutoffTime = now.subtract(const Duration(hours: 48));
+              
+              if (election.startTime.isBefore(cutoffTime) && election.endTime.isBefore(cutoffTime)) {
+                debugPrint(
+                  '⏭️ Skipping old election during refresh: ${election.name} (started: ${election.startTime})',
+                );
+                return; // Skip this old election
+              }
 
               // Store election metadata for results service
               ElectionResultsService.instance.storeElectionMetadata(election);

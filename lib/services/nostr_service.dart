@@ -492,11 +492,12 @@ class NostrService {
     }
 
     // Create request filter for kind 35000 events (elections)
-    // Note: No 'since' or 'limit' parameters to ensure maximum real-time event reception
+    // Remove 'since' parameter to ensure maximum real-time event reception
+    // Client-side filtering will be applied to show only recent elections
     final filter = dart_nostr.NostrFilter(
       kinds: [35000], // Election events only
       authors: [ecPublicKey],
-      since: DateTime.now().subtract(const Duration(hours: 12)),
+      // No 'since' parameter for immediate real-time updates
     );
 
     debugPrint(

@@ -1,13 +1,19 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:blind_rsa_signatures/blind_rsa_signatures.dart';
 import '../models/election.dart';
 import '../widgets/vote_confirmation_dialog.dart';
 import '../generated/app_localizations.dart';
 import '../services/selected_election_service.dart';
 import '../services/vote_service.dart';
 import '../services/voter_session_service.dart';
+import '../services/nostr_service.dart';
+import '../services/nostr_key_manager.dart';
+import '../services/crypto_service.dart';
+import '../config/app_config.dart';
 import '../providers/election_provider.dart';
 
 class ElectionDetailScreen extends StatefulWidget {
@@ -36,6 +42,8 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
     _saveSelectedElection();
     _checkVoteTokenAvailability();
     _startVoteTokenListener();
+    // Start automatic token request if needed
+    _triggerAutomaticTokenRequestIfNeeded();
   }
 
   @override
@@ -84,13 +92,37 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
 
       debugPrint('🎫 Vote token available: $_hasVoteToken');
       debugPrint('🔄 Requesting token: $_isRequestingToken');
-      _debugCurrentState();
     } catch (e) {
       debugPrint('❌ Error checking vote token: $e');
       setState(() {
         _hasVoteToken = false;
         _isRequestingToken = false;
       });
+    }
+  }
+
+  /// Automatically trigger token request if user has no token and no active request
+  Future<void> _triggerAutomaticTokenRequestIfNeeded() async {
+    // Wait a bit for the initial state check to complete
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    // Re-check state after delay to ensure we have current values
+    await _checkVoteTokenAvailability();
+    
+    // Only trigger automatic request if:
+    // 1. User has no vote token
+    // 2. No active token request
+    // 3. Election allows candidate selection (open or in-progress)
+    final allowCandidateSelection = 
+        widget.election.status.toLowerCase() == 'open' ||
+        widget.election.status.toLowerCase() == 'in-progress';
+    
+    if (!_hasVoteToken && !_isRequestingToken && allowCandidateSelection) {
+      debugPrint('🤖 Auto-triggering token request for election: ${widget.election.id}');
+      
+      // Clear any stale session data first
+      await VoterSessionService.clearSession();
+      await _startTokenRequest();
     }
   }
 
@@ -102,6 +134,9 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
     _tokenRequestTimeout = Timer(const Duration(seconds: 30), () {
       if (mounted && _isRequestingToken) {
         debugPrint('⏰ Token request timeout reached');
+        
+        // Clear session data on timeout to allow retry
+        _clearFailedSession();
         
         setState(() {
           _isRequestingToken = false;
@@ -119,8 +154,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
               textColor: Colors.white,
               onPressed: () {
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                // Navigate back to elections screen to retry
-                Navigator.of(context).pop();
+                _requestTokenManually();
               },
             ),
           ),
@@ -129,6 +163,88 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
     });
     
     debugPrint('⏰ Started 30-second timeout for token request');
+  }
+
+  /// Start a token request for this election
+  Future<void> _startTokenRequest() async {
+    try {
+      debugPrint('🎫 Starting token request for election: ${widget.election.id}');
+      
+      // Update UI state to show requesting status
+      setState(() {
+        _isRequestingToken = true;
+        _hasVoteToken = false;
+      });
+      
+      // Start timeout for this request
+      _startTokenRequestTimeout();
+      
+      // Call the actual token request implementation
+      await _requestBlindSignature();
+      
+      debugPrint('🎫 Token request initiated - waiting for response...');
+      
+    } catch (e) {
+      debugPrint('❌ Error starting token request: $e');
+      
+      if (mounted) {
+        setState(() {
+          _isRequestingToken = false;
+        });
+      }
+    }
+  }
+
+  /// Request blind signature for this election (copied from elections_screen.dart)
+  Future<void> _requestBlindSignature() async {
+    try {
+      final election = widget.election;
+      
+      final keys = await NostrKeyManager.getDerivedKeys();
+      final privKey = keys['privateKey'] as Uint8List;
+      final pubKey = keys['publicKey'] as Uint8List;
+
+      String bytesToHex(Uint8List b) =>
+          b.map((e) => e.toRadixString(16).padLeft(2, '0')).join();
+
+      final voterPrivHex = bytesToHex(privKey);
+      final voterPubHex = bytesToHex(pubKey);
+
+      final der = base64.decode(election.rsaPubKey);
+      final ecPk = PublicKey.fromDer(der);
+
+      final nonce = CryptoService.generateNonce();
+      final hashed = CryptoService.hashNonce(nonce);
+      final result = CryptoService.blindNonce(hashed, ecPk);
+
+
+      // Save complete session state including election ID and hash bytes (matching Rust app variable)
+      await VoterSessionService.saveSession(nonce, result, hashed, election.id, election.rsaPubKey);
+
+      // Use the shared NostrService instance to avoid concurrent connection issues
+      final nostr = NostrService.instance;
+      
+      // Start listening for Gift Wrap responses before sending the request
+      await nostr.startGiftWrapListener(voterPubHex, voterPrivHex);
+      
+      // Send the blind signature request
+      await nostr.sendBlindSignatureRequestSafe(
+        ecPubKey: AppConfig.ecPublicKey,
+        electionId: election.id,
+        blindedNonce: result.blindMessage,
+        voterPrivKeyHex: voterPrivHex,
+        voterPubKeyHex: voterPubHex,
+      );
+      
+      debugPrint('✅ Blind signature request sent successfully, listening for response...');
+    } catch (e) {
+      debugPrint('❌ Error requesting blind signature: $e');
+      
+      // Notify about the error through the token stream
+      VoterSessionService.emitTokenError(widget.election.id, 'Request Error', e.toString());
+      
+      rethrow; // Re-throw so the calling method can handle it
+    }
   }
 
   void _startVoteTokenListener() {
@@ -157,7 +273,6 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
               debugPrint(
                 '🔍 After setState - _hasVoteToken: $_hasVoteToken, _isRequestingToken: $_isRequestingToken',
               );
-              _debugCurrentState();
 
               // Show success feedback
               ScaffoldMessenger.of(context).showSnackBar(
@@ -173,13 +288,22 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
             debugPrint('🚨 Vote token error received: ${event.errorType}');
             debugPrint('   Error message: ${event.errorMessage}');
 
+            // Clear session data for specific error types that indicate user needs to retry
+            if (event.errorType == 'Unauthorized Voter' || 
+                event.errorType == 'Token Already Issued' ||
+                (event.errorMessage?.contains('unauthorized-voter') ?? false) ||
+                (event.errorMessage?.contains('nonce-hash-already-issued') ?? false)) {
+              
+              debugPrint('🗑️ Clearing session data due to authorization error - allowing retry');
+              _clearFailedSession();
+            }
+
             if (mounted) {
               setState(() {
                 _hasVoteToken = false;
                 _isRequestingToken = false; // Stop showing "requesting" state
               });
 
-              _debugCurrentState();
 
               // Show error feedback with specific message
               ScaffoldMessenger.of(context).showSnackBar(
@@ -188,10 +312,11 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
                   backgroundColor: Colors.red,
                   duration: const Duration(seconds: 8), // Longer duration for errors
                   action: SnackBarAction(
-                    label: 'Dismiss',
+                    label: 'Retry',
                     textColor: Colors.white,
                     onPressed: () {
                       ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                      _requestTokenManually();
                     },
                   ),
                 ),
@@ -210,28 +335,48 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
     );
   }
 
-  void _debugCurrentState() {
-    final now = DateTime.now();
-    final election = _currentElection ?? widget.election;
-    final isActive = election.status.toLowerCase() == 'in-progress';
 
-    debugPrint('🔍 === CURRENT STATE DEBUG ===');
-    debugPrint('   Election ID: ${election.id}');
-    debugPrint('   Election Status: ${election.status}');
-    debugPrint('   Start Time: ${election.startTime}');
-    debugPrint('   End Time: ${election.endTime}');
-    debugPrint('   Current Time: $now');
-    debugPrint('   Is Active: $isActive');
-    debugPrint('   Has Vote Token: $_hasVoteToken');
-    debugPrint('   Is Requesting Token: $_isRequestingToken');
-    debugPrint('   Is Voting: $_isVoting');
-    debugPrint('   Selected Candidate: $_selectedCandidateId');
-    debugPrint('   Candidates Count: ${election.candidates.length}');
-    debugPrint(
-      '   Allow Selection: ${election.status.toLowerCase() == 'open' || election.status.toLowerCase() == 'in-progress'}',
-    );
-    debugPrint('   Allow Voting: $isActive');
-    debugPrint('=============================');
+  /// Clear failed session data to allow retry
+  Future<void> _clearFailedSession() async {
+    try {
+      debugPrint('🗑️ Clearing failed session data for election: ${widget.election.id}');
+      
+      // Clear all session data related to this election
+      await VoterSessionService.clearSession();
+      
+      debugPrint('✅ Session data cleared - user can now retry token request');
+    } catch (e) {
+      debugPrint('❌ Error clearing failed session: $e');
+    }
+  }
+
+  /// Manually request a token (retry mechanism)
+  Future<void> _requestTokenManually() async {
+    try {
+      debugPrint('🔄 Manually requesting token for election: ${widget.election.id}');
+      
+      // First clear any existing session data
+      await _clearFailedSession();
+      
+      // Start the token request directly
+      await _startTokenRequest();
+      
+    } catch (e) {
+      debugPrint('❌ Error in manual token request: $e');
+      
+      if (mounted) {
+        setState(() {
+          _isRequestingToken = false;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Error requesting token: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -421,54 +566,6 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
 
             const SizedBox(height: 20),
 
-            // Debug information
-            if (kDebugMode) // Show only in debug builds
-              Container(
-                padding: const EdgeInsets.all(12),
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.withValues(alpha: 0.1),
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Debug Info:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                    Text('Active: $isActive', style: TextStyle(fontSize: 11)),
-                    Text(
-                      'Allow Selection: $allowCandidateSelection',
-                      style: TextStyle(fontSize: 11),
-                    ),
-                    Text(
-                      'Allow Voting: $allowVoting',
-                      style: TextStyle(fontSize: 11),
-                    ),
-                    Text(
-                      'Has Token: $_hasVoteToken',
-                      style: TextStyle(fontSize: 11),
-                    ),
-                    Text(
-                      'Requesting: $_isRequestingToken',
-                      style: TextStyle(fontSize: 11),
-                    ),
-                    Text(
-                      'Status: ${election.status}',
-                      style: TextStyle(fontSize: 11),
-                    ),
-                    Text(
-                      'Candidates: ${election.candidates.length}',
-                      style: TextStyle(fontSize: 11),
-                    ),
-                  ],
-                ),
-              ),
 
             // Vote token status
             if (!_hasVoteToken && allowCandidateSelection)
@@ -484,34 +581,54 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
                   ),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Row(
+                child: Column(
                   children: [
-                    if (_isRequestingToken)
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.blue,
+                    Row(
+                      children: [
+                        if (_isRequestingToken)
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.blue,
+                              ),
+                            ),
+                          )
+                        else
+                          Icon(Icons.info_outline, color: Colors.orange),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _isRequestingToken
+                                ? AppLocalizations.of(context).requestingVoteToken
+                                : AppLocalizations.of(context).needVoteTokenInstruction,
+                            style: TextStyle(
+                              color: _isRequestingToken
+                                  ? Colors.blue[800]
+                                  : Colors.orange[800],
+                            ),
                           ),
                         ),
-                      )
-                    else
-                      Icon(Icons.info_outline, color: Colors.orange),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        _isRequestingToken
-                            ? AppLocalizations.of(context).requestingVoteToken
-                            : AppLocalizations.of(context).needVoteTokenInstruction,
-                        style: TextStyle(
-                          color: _isRequestingToken
-                              ? Colors.blue[800]
-                              : Colors.orange[800],
+                      ],
+                    ),
+                    if (!_isRequestingToken) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _requestTokenManually,
+                          icon: Icon(Icons.refresh),
+                          label: Text(AppLocalizations.of(context).retry),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
