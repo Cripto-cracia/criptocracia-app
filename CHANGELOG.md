@@ -5,6 +5,26 @@ All notable changes to the Criptocracia Flutter voter app are documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-01-07
+
+### Added
+- **Token Request Retry Button**: Added retry functionality when vote token requests fail or time out
+- **Automatic Token Requests**: Implemented automatic token request initiation when opening election detail screens
+- **Pull-to-Refresh**: Added pull-down-to-refresh functionality to the elections list screen for manual updates
+- **Session Management**: Enhanced session cleanup and state management for failed token requests
+- **Timeout Handling**: Added 30-second timeout for token requests with proper error recovery
+
+### Improved
+- **Real-time Elections Display**: Enhanced client-side filtering to show elections from the last 48 hours
+- **Error Handling**: Comprehensive error handling for authorization failures and network timeouts
+- **User Experience**: Better visual feedback during token request states with loading indicators
+- **Code Quality**: Cleaned up debug logging and removed temporary debugging UI elements
+
+### Fixed
+- **Token Request Flow**: Resolved issues where retry button wasn't appearing due to session state confusion
+- **Session State**: Fixed token availability detection to properly show retry options when needed
+- **UI Responsiveness**: Improved state transitions between requesting, success, and error states
+
 ## [0.2.4] - 2025-01-05
 
 ### Added
