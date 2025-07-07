@@ -18,19 +18,24 @@ import 'generated/app_localizations.dart';
 void main(List<String> args) async {
   // Ensure Flutter bindings are initialized
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Parse command line arguments
   AppConfig.parseArguments(args);
-  
+
   try {
     // Initialize secure storage
     await SecureStorageService.init();
-    
+
     // Initialize Nostr keys if needed
     await NostrKeyManager.initializeKeysIfNeeded();
-    
-  } catch (e) {
 
+    // Load settings before running the app
+    final settingsProvider = SettingsProvider();
+    await settingsProvider.loadSettings();
+
+    runApp(CriptocraciaApp(settingsProvider: settingsProvider));
+
+  } catch (e) {
     debugPrint('❌ Critical initialization error: $e');
     // Show a simple error app
     runApp(MaterialApp(
@@ -58,12 +63,12 @@ void main(List<String> args) async {
     ));
     return;
   }
-  
-  runApp(const CriptocraciaApp());
 }
 
 class CriptocraciaApp extends StatelessWidget {
-  const CriptocraciaApp({super.key});
+  final SettingsProvider settingsProvider;
+
+  const CriptocraciaApp({super.key, required this.settingsProvider});
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +76,7 @@ class CriptocraciaApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => ElectionProvider()),
         ChangeNotifierProvider(create: (_) => ResultsProvider()),
-        ChangeNotifierProvider(create: (_) => SettingsProvider.instance),
+        ChangeNotifierProvider.value(value: settingsProvider),
       ],
       child: MaterialApp(
         title: 'Criptocracia',
@@ -86,7 +91,7 @@ class CriptocraciaApp extends StatelessWidget {
           Locale('es'),
         ],
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Color(0xFF03FFFE)),
+          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF03FFFE)),
           useMaterial3: true,
         ),
         home: const MainScreen(),
@@ -152,27 +157,28 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _startGlobalElectionResultsSubscription() async {
     try {
       debugPrint('🚀 Starting global election results subscription...');
-      
+
       final nostrService = NostrService.instance;
-      
+      final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+
       // Connect to the relay
-      await nostrService.connect(AppConfig.relayUrls);
-      
+      await nostrService.connect(settingsProvider.relayUrls);
+
       // Subscribe to ALL election results events from EC
-      final electionResultsStream = nostrService.subscribeToAllElectionResults(AppConfig.ecPublicKey);
-      
+      final electionResultsStream = nostrService.subscribeToAllElectionResults(settingsProvider.ecPublicKey);
+
       // Listen to the stream to store all election results globally
       _electionResultsSubscription = electionResultsStream.listen(
         (event) {
           debugPrint('🎯 GLOBAL: Election results received in MainScreen: ${event.id}');
-          
+
           // Extract election ID from d tag
           final dTag = event.tags.firstWhere(
             (tag) => tag.length >= 2 && tag[0] == 'd',
             orElse: () => ['d', 'unknown'],
           );
           final electionId = dTag.length >= 2 ? dTag[1] : 'unknown';
-          
+
           debugPrint('   Election ID: $electionId');
           debugPrint('   Kind: ${event.kind}');
           debugPrint('   Content: ${event.content}');
@@ -185,11 +191,11 @@ class _MainScreenState extends State<MainScreen> {
           debugPrint('🔚 GLOBAL: Election results stream closed');
         },
       );
-      
+
       debugPrint('✅ Global election results subscription started successfully');
-      debugPrint('   Listening for ALL kind 35001 events from: ${AppConfig.ecPublicKey}');
+      debugPrint('   Listening for ALL kind 35001 events from: ${settingsProvider.ecPublicKey}');
       debugPrint('   Results will be stored globally for all elections');
-      
+
     } catch (e) {
       debugPrint('❌ Failed to start global election results subscription: $e');
     }
@@ -336,6 +342,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _showDebugInfo() {
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -344,8 +351,8 @@ class _MainScreenState extends State<MainScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(AppLocalizations.of(context).relayUrlDebug(AppConfig.relayUrls.join(', '))),
-            Text(AppLocalizations.of(context).ecPublicKey(AppConfig.ecPublicKey)),
+            Text(AppLocalizations.of(context).relayUrlDebug(settingsProvider.relayUrls.join(', '))),
+            Text(AppLocalizations.of(context).ecPublicKey(settingsProvider.ecPublicKey)),
             Text(AppLocalizations.of(context).debugMode(AppConfig.debugMode.toString())),
             Text(AppLocalizations.of(context).configured(AppConfig.isConfigured.toString())),
           ],

@@ -6,18 +6,12 @@ import '../models/relay_status.dart';
 import '../services/nostr_service.dart';
 
 class SettingsProvider with ChangeNotifier {
-  static SettingsProvider? _instance;
-  static SettingsProvider get instance {
-    _instance ??= SettingsProvider._internal();
-    return _instance!;
+  SettingsProvider() {
+    // Initialize with default values
   }
 
-  SettingsProvider._internal() {
-    _loadSettingsAsync();
-  }
-
-  /// Load settings asynchronously and notify listeners when complete
-  void _loadSettingsAsync() async {
+  /// Load settings from persistent storage
+  Future<void> loadSettings() async {
     await _loadSettings();
   }
 
