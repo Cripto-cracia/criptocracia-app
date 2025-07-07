@@ -348,11 +348,14 @@ class NostrService {
         throw Exception('No current key pair available');
       }
 
-      final payload = jsonEncode({
-        'id': electionId,
-        'kind': 1,
-        'payload': base64.encode(blindedNonce),
-      });
+      final message = Message(
+        id: 'blind_signature_request',
+        electionId: electionId,
+        kind: 1,
+        payload: base64.encode(blindedNonce),
+      );
+      
+      final payload = message.toJson();
 
       debugPrint('📦 Creating NIP-59 gift wrap...');
 

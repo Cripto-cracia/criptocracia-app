@@ -241,6 +241,7 @@ Configuration can be customized changing `relayUrl` and `ecPublicKey` variables 
 
 - **[CHANGELOG.md](CHANGELOG.md)**: Detailed change history and new features
 - **[ARCHITECTURE.md](ARCHITECTURE.md)**: Technical architecture and implementation details
+- **[NOSTR.md](NOSTR.md)**: Complete Nostr protocol implementation and event specifications
 - **[REPLACE_APP_ICON.md](REPLACE_APP_ICON.md)**: Instructions for customizing app icons
 
 ## 🤝 Contributing

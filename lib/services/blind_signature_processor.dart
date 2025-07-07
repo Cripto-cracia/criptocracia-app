@@ -24,7 +24,7 @@ class BlindSignatureProcessor {
 
     try {
       debugPrint('🔓 Processing blind signature response...');
-      debugPrint('   Election ID: ${message.id}');
+      debugPrint('   Election ID: ${message.electionId}');
       debugPrint('   Payload length: ${message.payload.length} chars');
 
       // 1) Decode Base64 blind signature payload
@@ -33,7 +33,7 @@ class BlindSignatureProcessor {
       debugPrint('✅ Decoded ${blindSigBytes.length} bytes');
 
       // 2) Retrieve session data for this election
-      debugPrint('🔑 Retrieving session data for election: ${message.id}');
+      debugPrint('🔑 Retrieving session data for election: ${message.electionId}');
       final sessionData = await VoterSessionService.getCompleteSession();
 
       if (sessionData == null) {
@@ -42,9 +42,9 @@ class BlindSignatureProcessor {
       }
 
       final storedElectionId = sessionData['electionId'] as String?;
-      if (storedElectionId != message.id) {
+      if (storedElectionId != message.electionId) {
         debugPrint(
-          '❌ Election ID mismatch: stored=$storedElectionId, received=${message.id}',
+          '❌ Election ID mismatch: stored=$storedElectionId, received=${message.electionId}',
         );
         return false;
       }
@@ -73,10 +73,10 @@ class BlindSignatureProcessor {
       debugPrint('   Secret: ${secret.length} bytes');
 
       // 3) Get EC public key from election data
-      final ecPublicKey = await _getElectionCoordinatorPublicKey(message.id);
+      final ecPublicKey = await _getElectionCoordinatorPublicKey(message.electionId);
       if (ecPublicKey == null) {
         debugPrint(
-          '❌ Could not retrieve EC public key for election: ${message.id}',
+          '❌ Could not retrieve EC public key for election: ${message.electionId}',
         );
         return false;
       }
@@ -145,10 +145,10 @@ class BlindSignatureProcessor {
       );
 
       debugPrint('✅ Vote token stored successfully');
-      debugPrint('🎫 Ready to cast vote for election: ${message.id}');
+      debugPrint('🎫 Ready to cast vote for election: ${message.electionId}');
 
       // Notify UI that vote token is now available
-      VoterSessionService.emitVoteTokenAvailable(message.id);
+      VoterSessionService.emitVoteTokenAvailable(message.electionId);
       debugPrint('📢 Emitted vote token available event for UI');
 
       return true;
@@ -222,7 +222,7 @@ class BlindSignatureProcessor {
 
     try {
       debugPrint('🗳️ Processing vote response...');
-      debugPrint('   Election ID: ${message.id}');
+      debugPrint('   Election ID: ${message.electionId}');
       debugPrint('   Response: ${message.payload}');
 
       // For now, just log the response
@@ -246,7 +246,7 @@ class BlindSignatureProcessor {
 
     try {
       debugPrint('🚨 Processing error message from EC...');
-      debugPrint('   Election ID: ${message.id}');
+      debugPrint('   Election ID: ${message.electionId}');
 
       final errorContent = message.errorContent;
       if (errorContent == null || errorContent.isEmpty) {
@@ -284,7 +284,7 @@ class BlindSignatureProcessor {
       debugPrint('   User message: $userMessage');
 
       // Emit error event through VoterSessionService for UI to handle
-      VoterSessionService.emitTokenError(message.id, errorType, userMessage);
+      VoterSessionService.emitTokenError(message.electionId, errorType, userMessage);
 
       debugPrint('✅ Error message processed and emitted to UI');
     } catch (e) {
@@ -297,6 +297,7 @@ class BlindSignatureProcessor {
     debugPrint('📨 Processing message: $message');
     debugPrint('   Message kind: ${message.kind}');
     debugPrint('   Message id: ${message.id}');
+    debugPrint('   Message electionId: ${message.electionId}');
     debugPrint('   Message payload length: ${message.payload.length}');
 
     switch (message.kind) {

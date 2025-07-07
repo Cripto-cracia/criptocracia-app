@@ -3,8 +3,11 @@ import 'dart:convert';
 /// Message model for Nostr communication in Criptocracia voting protocol
 /// Represents the JSON payload sent/received in Gift Wrap events
 class Message {
-  /// Election ID
+  /// Message ID
   final String id;
+  
+  /// Election ID
+  final String electionId;
   
   /// Message kind: 1 = Token request/response, 2 = Vote, 3 = Error
   final int kind;
@@ -14,6 +17,7 @@ class Message {
 
   const Message({
     required this.id,
+    required this.electionId,
     required this.kind,
     required this.payload,
   });
@@ -34,6 +38,9 @@ class Message {
     if (!json.containsKey('id')) {
       throw FormatException('Missing required field: id');
     }
+    if (!json.containsKey('election_id')) {
+      throw FormatException('Missing required field: election_id');
+    }
     if (!json.containsKey('kind')) {
       throw FormatException('Missing required field: kind');
     }
@@ -45,6 +52,11 @@ class Message {
     final id = json['id'];
     if (id is! String) {
       throw FormatException('Field "id" must be a string, got: ${id.runtimeType}');
+    }
+
+    final electionId = json['election_id'];
+    if (electionId is! String) {
+      throw FormatException('Field "election_id" must be a string, got: ${electionId.runtimeType}');
     }
 
     final kind = json['kind'];
@@ -59,6 +71,7 @@ class Message {
 
     return Message(
       id: id,
+      electionId: electionId,
       kind: kind,
       payload: payload,
     );
@@ -68,6 +81,7 @@ class Message {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'election_id': electionId,
       'kind': kind,
       'payload': payload,
     };
@@ -83,6 +97,7 @@ class Message {
     try {
       // Check basic field presence and types
       if (id.isEmpty) return false;
+      if (electionId.isEmpty) return false;
       if (kind < 1 || kind > 3) return false; // Support kinds 1, 2, and 3
       if (payload.isEmpty) return false;
 
@@ -148,7 +163,7 @@ class Message {
 
   @override
   String toString() {
-    return 'Message(id: $id, kind: $kind ($kindDescription), payload: ${payload.length} chars)';
+    return 'Message(id: $id, electionId: $electionId, kind: $kind ($kindDescription), payload: ${payload.length} chars)';
   }
 
   @override
@@ -156,23 +171,26 @@ class Message {
     if (identical(this, other)) return true;
     return other is Message &&
         other.id == id &&
+        other.electionId == electionId &&
         other.kind == kind &&
         other.payload == payload;
   }
 
   @override
   int get hashCode {
-    return Object.hash(id, kind, payload);
+    return Object.hash(id, electionId, kind, payload);
   }
 
   /// Create a copy of this message with optional field updates
   Message copyWith({
     String? id,
+    String? electionId,
     int? kind,
     String? payload,
   }) {
     return Message(
       id: id ?? this.id,
+      electionId: electionId ?? this.electionId,
       kind: kind ?? this.kind,
       payload: payload ?? this.payload,
     );

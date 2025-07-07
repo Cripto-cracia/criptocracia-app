@@ -147,7 +147,8 @@ class VoteService {
       // 3) Create Message with election_id, kind=2, and vote payload
       debugPrint('📨 Creating vote message...');
       final message = Message(
-        id: electionId,
+        id: 'vote_message',
+        electionId: electionId,
         kind: 2, // Vote message type
         payload: votePayload,
       );

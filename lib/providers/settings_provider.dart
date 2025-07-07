@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 import '../models/relay_status.dart';
 import '../services/nostr_service.dart';
@@ -11,7 +12,18 @@ class SettingsProvider with ChangeNotifier {
     return _instance!;
   }
 
-  SettingsProvider._internal();
+  SettingsProvider._internal() {
+    _loadSettingsAsync();
+  }
+
+  /// Load settings asynchronously and notify listeners when complete
+  void _loadSettingsAsync() async {
+    await _loadSettings();
+  }
+
+  // Storage keys
+  static const String _relayUrlsKey = 'settings_relay_urls';
+  static const String _ecPublicKeyKey = 'settings_ec_public_key';
 
   final List<String> _relayUrls = List.from(AppConfig.relayUrls);
   String _ecPublicKey = AppConfig.ecPublicKey;
@@ -27,6 +39,70 @@ class SettingsProvider with ChangeNotifier {
   void dispose() {
     _statusCheckTimer?.cancel();
     super.dispose();
+  }
+
+  /// Load settings from persistent storage
+  Future<void> _loadSettings() async {
+    try {
+      debugPrint('📖 Loading settings from persistent storage...');
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Load EC public key
+      final savedEcKey = prefs.getString(_ecPublicKeyKey);
+      if (savedEcKey != null && savedEcKey.isNotEmpty) {
+        // Validate the saved key
+        if (savedEcKey.length == 64 && RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(savedEcKey)) {
+          _ecPublicKey = savedEcKey;
+          AppConfig.ecPublicKey = savedEcKey;
+          debugPrint('✅ Loaded EC public key from storage');
+        } else {
+          debugPrint('⚠️ Invalid saved EC key format, using default');
+        }
+      } else {
+        debugPrint('ℹ️ No saved EC public key found, using default');
+      }
+      
+      // Load relay URLs
+      final savedRelayUrls = prefs.getStringList(_relayUrlsKey);
+      if (savedRelayUrls != null && savedRelayUrls.isNotEmpty) {
+        _relayUrls.clear();
+        _relayUrls.addAll(savedRelayUrls);
+        AppConfig.relayUrls = List.from(_relayUrls);
+        debugPrint('✅ Loaded ${savedRelayUrls.length} relay URLs from storage');
+      } else {
+        debugPrint('ℹ️ No saved relay URLs found, using defaults');
+      }
+      
+      debugPrint('✅ Settings loaded successfully');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ Error loading settings: $e');
+      // Continue with default values if loading fails
+    }
+  }
+
+  /// Save EC public key to persistent storage
+  Future<void> _saveEcPublicKey() async {
+    try {
+      debugPrint('💾 Saving EC public key to storage...');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_ecPublicKeyKey, _ecPublicKey);
+      debugPrint('✅ EC public key saved successfully');
+    } catch (e) {
+      debugPrint('❌ Error saving EC public key: $e');
+    }
+  }
+
+  /// Save relay URLs to persistent storage
+  Future<void> _saveRelayUrls() async {
+    try {
+      debugPrint('💾 Saving relay URLs to storage...');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_relayUrlsKey, _relayUrls);
+      debugPrint('✅ Relay URLs saved successfully');
+    } catch (e) {
+      debugPrint('❌ Error saving relay URLs: $e');
+    }
   }
 
   /// Initialize relay status monitoring
@@ -132,6 +208,9 @@ class SettingsProvider with ChangeNotifier {
       _relayUrls.add(url);
       AppConfig.relayUrls = List.from(_relayUrls);
       
+      // Save to persistent storage
+      await _saveRelayUrls();
+      
       // Test the new relay
       await _checkRelayStatus(url);
       
@@ -158,6 +237,9 @@ class SettingsProvider with ChangeNotifier {
     _relayUrls.remove(url);
     _relayStatuses.remove(url);
     AppConfig.relayUrls = List.from(_relayUrls);
+    
+    // Save to persistent storage
+    _saveRelayUrls();
     
     notifyListeners();
     debugPrint('✅ Removed relay: $url');
@@ -191,6 +273,9 @@ class SettingsProvider with ChangeNotifier {
       _relayStatuses.remove(oldUrl);
       AppConfig.relayUrls = List.from(_relayUrls);
       
+      // Save to persistent storage
+      await _saveRelayUrls();
+      
       // Test the updated relay
       await _checkRelayStatus(newUrl);
       
@@ -211,11 +296,16 @@ class SettingsProvider with ChangeNotifier {
         throw Exception('EC public key must be exactly 64 characters');
       }
       
-      // Check if it's valid hex
-      int.parse(newKey, radix: 16);
+      // Check if it's valid hex by validating each character
+      if (!RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(newKey)) {
+        throw Exception('EC public key must contain only hexadecimal characters (0-9, a-f, A-F)');
+      }
       
       _ecPublicKey = newKey;
       AppConfig.ecPublicKey = newKey;
+      
+      // Save to persistent storage
+      _saveEcPublicKey();
       
       notifyListeners();
       debugPrint('✅ Updated EC public key');

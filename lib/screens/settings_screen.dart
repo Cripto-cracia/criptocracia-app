@@ -17,19 +17,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _ecKeyController = TextEditingController();
   final TextEditingController _relayController = TextEditingController();
   bool _isRefreshing = false;
+  SettingsProvider? _settingsProvider;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_settingsProvider == null) {
+      _settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+      _settingsProvider!.addListener(_onSettingsChanged);
+      _updateEcKeyController(_settingsProvider!);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
-      _ecKeyController.text = settingsProvider.ecPublicKey;
-      settingsProvider.initializeStatusMonitoring();
+      if (_settingsProvider != null) {
+        _settingsProvider!.initializeStatusMonitoring();
+      }
     });
+  }
+
+  void _onSettingsChanged() {
+    if (mounted && _settingsProvider != null) {
+      _updateEcKeyController(_settingsProvider!);
+    }
+  }
+
+  void _updateEcKeyController(SettingsProvider settingsProvider) {
+    if (mounted && _ecKeyController.text != settingsProvider.ecPublicKey) {
+      debugPrint('🔄 Updating EC key controller from ${_ecKeyController.text} to ${settingsProvider.ecPublicKey}');
+      _ecKeyController.text = settingsProvider.ecPublicKey;
+    }
   }
 
   @override
   void dispose() {
+    _settingsProvider?.removeListener(_onSettingsChanged);
     _ecKeyController.dispose();
     _relayController.dispose();
     super.dispose();
