@@ -165,7 +165,10 @@ class _MainScreenState extends State<MainScreen> {
       await nostrService.connect(settingsProvider.relayUrls);
 
       // Subscribe to ALL election results events from EC
-      final electionResultsStream = nostrService.subscribeToAllElectionResults(settingsProvider.ecPublicKey);
+      // Process all results globally, filtering will be done at display layer
+      final electionResultsStream = nostrService.subscribeToAllElectionResults(
+        settingsProvider.ecPublicKey,
+      );
 
       // Listen to the stream to store all election results globally
       _electionResultsSubscription = electionResultsStream.listen(
@@ -182,7 +185,7 @@ class _MainScreenState extends State<MainScreen> {
           debugPrint('   Election ID: $electionId');
           debugPrint('   Kind: ${event.kind}');
           debugPrint('   Content: ${event.content}');
-          debugPrint('   Results automatically stored in global service');
+          debugPrint('   ✅ Results stored in global service for all elections');
         },
         onError: (error) {
           debugPrint('❌ GLOBAL: Error in election results stream: $error');

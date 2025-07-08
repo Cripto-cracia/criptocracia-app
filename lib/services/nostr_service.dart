@@ -563,7 +563,10 @@ class NostrService {
 
   /// Subscribe to all election results events from EC public key (kind 35001)
   /// This will store all election results globally and show real-time logs
-  Stream<NostrEvent> subscribeToAllElectionResults(String ecPublicKey) {
+  Stream<NostrEvent> subscribeToAllElectionResults(
+    String ecPublicKey, {
+    bool Function(String electionId)? shouldProcessElection,
+  }) {
     if (!_connected) {
       throw Exception('Not connected to relay');
     }
@@ -571,7 +574,6 @@ class NostrService {
     final filter = dart_nostr.NostrFilter(
       kinds: [35001],
       authors: [ecPublicKey],
-      since: DateTime.now().subtract(const Duration(hours: 12)),
     );
     final controller = StreamController<NostrEvent>.broadcast();
 
@@ -594,6 +596,14 @@ class NostrService {
           final electionId = dTag != null && dTag.length >= 2
               ? dTag[1]
               : 'unknown';
+
+          // Check if this election should be processed (if filter function provided)
+          final shouldProcess = shouldProcessElection?.call(electionId) ?? true;
+          
+          if (!shouldProcess) {
+            debugPrint('⏭️ Skipping results for filtered election: $electionId');
+            return; // Skip this result event
+          }
 
           if (dartNostrEvent.content != null &&
               dartNostrEvent.content!.isNotEmpty) {

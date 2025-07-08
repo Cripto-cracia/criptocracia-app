@@ -61,7 +61,22 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
   void _loadResults() {
     if (mounted) {
       setState(() {
-        _electionResults = ElectionResultsService.instance.getAllElectionResults();
+        // Get all results from global service
+        final allResults = ElectionResultsService.instance.getAllElectionResults();
+        
+        // Filter to only show results for elections that have metadata (are currently visible)
+        final electionProvider = context.read<ElectionProvider>();
+        final visibleElectionIds = electionProvider.elections.map((e) => e.id).toSet();
+        
+        _electionResults = allResults.where((result) {
+          final hasMetadata = visibleElectionIds.contains(result.electionId);
+          if (!hasMetadata) {
+            debugPrint('🔍 Filtering out results for non-visible election: ${result.electionId}');
+          }
+          return hasMetadata;
+        }).toList();
+        
+        debugPrint('📊 Loaded ${_electionResults.length} results for visible elections (${allResults.length} total)');
         _isLoading = false;
       });
     }
