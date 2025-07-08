@@ -5,6 +5,23 @@ All notable changes to the Criptocracia Flutter voter app are documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2025-01-08
+
+### Added
+- **App Version Display**: Added version information to the bottom of the navigation drawer for easy access
+- **Enhanced Branding**: Integrated official Criptocracia word logo in drawer header for improved brand consistency
+
+### Improved
+- **Election Card Time Display**: Changed bottom time indicators to show precise start/end times (HH:MM format) instead of dates
+- **Results Screen Layout**: Removed app bar title for cleaner, more focused results display with maximum content space
+- **Drawer Design**: Replaced small logo + text with responsive word image (70% drawer width) for professional appearance
+- **Results Filtering**: Fixed race condition in results filtering by moving filter logic to display layer instead of service layer
+
+### Fixed
+- **Election Results Display**: Resolved issue where results weren't showing due to premature filtering in global subscription
+- **Real-time Results**: Ensured all election results are captured globally while maintaining proper filtering for UI display
+- **Data Flow**: Improved results data flow to prevent loss of results due to timing issues between elections and results loading
+
 ## [0.3.0] - 2025-01-07
 
 ### Added
