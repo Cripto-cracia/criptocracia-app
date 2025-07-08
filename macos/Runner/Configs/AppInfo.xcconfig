@@ -8,7 +8,7 @@
 PRODUCT_NAME = criptocracia
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.criptocracia.criptocracia
+PRODUCT_BUNDLE_IDENTIFIER = vote.criptocracia.app
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2025 com.criptocracia. All rights reserved.

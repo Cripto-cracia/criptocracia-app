@@ -1,4 +1,4 @@
-package com.criptocracia.criptocracia
+package vote.criptocracia.app
 
 import io.flutter.embedding.android.FlutterActivity
 
