@@ -322,13 +322,13 @@ class _ElectionCardState extends State<ElectionCard>
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              _formatDate(widget.election.startTime),
+              _formatTime(widget.election.startTime),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
             Text(
-              _formatDate(widget.election.endTime),
+              _formatTime(widget.election.endTime),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurface.withValues(alpha: 0.6),
               ),

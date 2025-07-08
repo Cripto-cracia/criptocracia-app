@@ -230,10 +230,6 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(AppLocalizations.of(context).navResults),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
       body: RefreshIndicator(
         onRefresh: _onRefresh,
         child: _isLoading
