@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'config/app_config.dart';
 import 'providers/election_provider.dart';
 import 'providers/results_provider.dart';
@@ -251,23 +252,17 @@ class _MainScreenState extends State<MainScreen> {
               color: Theme.of(context).colorScheme.primary,
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Image.asset(
-                  'assets/images/app_logo.png',
-                  height: 32,
-                  width: 32,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  AppLocalizations.of(context).appTitle,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onPrimary,
-                    fontWeight: FontWeight.bold,
+                FractionallySizedBox(
+                  widthFactor: 0.7,
+                  child: Image.asset(
+                    'assets/images/criptocracia_word.png',
+                    fit: BoxFit.contain,
                   ),
                 ),
+                const SizedBox(height: 8),
                 Text(
                   AppLocalizations.of(context).appSubtitle,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -338,6 +333,26 @@ class _MainScreenState extends State<MainScreen> {
               Navigator.pop(context);
               _showAppInfo();
             },
+          ),
+          const Divider(),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: FutureBuilder<PackageInfo>(
+              future: PackageInfo.fromPlatform(),
+              builder: (context, snapshot) {
+                if (snapshot.hasData) {
+                  return Text(
+                    'v${snapshot.data!.version}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                    textAlign: TextAlign.center,
+                  );
+                } else {
+                  return const SizedBox.shrink();
+                }
+              },
+            ),
           ),
         ],
       ),
