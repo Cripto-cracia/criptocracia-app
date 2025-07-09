@@ -1,0 +1,15 @@
+identifier: vote.criptocracia.app
+repository: https://github.com/Cripto-cracia/criptocracia-app
+homepage: https://criptocracia.vote
+name: Criptocracia
+summary: Experimental, trustless open-source electronic voting mobile app
+description: >
+  Criptocracia is an experimental, trustless open-source electronic voting system.
+  This application serves as the voter client, implementing blind RSA signatures
+  to ensure vote secrecy and voter anonymity, while using the Nostr protocol for
+  decentralized, encrypted message transport.
+icon: assets/images/app_logo.png
+changelog: CHANGELOG.md
+license: MIT
+assets:
+  - .*.apk
