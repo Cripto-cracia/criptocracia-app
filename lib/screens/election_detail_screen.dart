@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:blind_rsa_signatures/blind_rsa_signatures.dart';
 import '../models/election.dart';
-import '../models/message.dart';
 import '../widgets/vote_confirmation_dialog.dart';
 import '../generated/app_localizations.dart';
 import '../services/selected_election_service.dart';
@@ -14,7 +13,6 @@ import '../services/voter_session_service.dart';
 import '../services/nostr_service.dart';
 import '../services/nostr_key_manager.dart';
 import '../services/crypto_service.dart';
-import '../services/blind_signature_processor.dart';
 import '../config/app_config.dart';
 import '../providers/election_provider.dart';
 
@@ -33,8 +31,6 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
   bool _hasVoteToken = false;
   bool _isRequestingToken = false;
   StreamSubscription<VoteTokenEvent>? _voteTokenSubscription;
-  StreamSubscription? _messageSubscription;
-  StreamSubscription? _errorSubscription;
   Election? _currentElection; // Track current election state
   Timer? _tokenRequestTimeout; // Timeout for token requests
 
@@ -46,7 +42,6 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
     _saveSelectedElection();
     _checkVoteTokenAvailability();
     _startVoteTokenListener();
-    _setupMessageListeners();
     // Start automatic token request if needed
     _triggerAutomaticTokenRequestIfNeeded();
   }
@@ -54,59 +49,8 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
   @override
   void dispose() {
     _voteTokenSubscription?.cancel();
-    _messageSubscription?.cancel();
-    _errorSubscription?.cancel();
     _tokenRequestTimeout?.cancel();
     super.dispose();
-  }
-
-  /// Setup listeners for incoming Gift Wrap messages
-  void _setupMessageListeners() {
-    final nostr = NostrService.instance;
-    
-    // Listen for incoming messages
-    _messageSubscription = nostr.messageStream.listen((message) {
-      debugPrint('📨 Received message in ElectionDetailScreen: $message');
-      debugPrint('   For election: ${widget.election.id}');
-      _handleIncomingMessage(message);
-    });
-
-    // Listen for errors
-    _errorSubscription = nostr.errorStream.listen((error) {
-      debugPrint('❌ NostrService error in ElectionDetailScreen: $error');
-      // Could show user-friendly error message here
-    });
-    
-    debugPrint('🎧 ElectionDetailScreen: Message listeners setup complete');
-  }
-
-  /// Handle incoming messages from Gift Wrap events
-  Future<void> _handleIncomingMessage(Message message) async {
-    try {
-      debugPrint('🔄 ElectionDetailScreen: Processing message: $message');
-      debugPrint('   Kind: ${message.kind}');
-      debugPrint('   Election ID: ${message.electionId}');
-      debugPrint('   isTokenMessage: ${message.isTokenMessage}');
-      debugPrint('   isVoteMessage: ${message.isVoteMessage}');
-      debugPrint('   isErrorMessage: ${message.isErrorMessage}');
-      
-      final processor = BlindSignatureProcessor.instance;
-      final success = await processor.processMessage(message);
-      
-      debugPrint('🔄 ElectionDetailScreen: Message processing result: $success');
-      
-      if (success) {
-        if (message.isTokenMessage) {
-          debugPrint('✅ Blind signature processed successfully for election: ${message.electionId}');
-        } else if (message.isErrorMessage) {
-          debugPrint('❌ Error message processed for election: ${message.electionId}');
-        }
-      } else {
-        debugPrint('❌ Failed to process message for election: ${message.electionId}');
-      }
-    } catch (e) {
-      debugPrint('❌ Error handling incoming message: $e');
-    }
   }
 
   Future<void> _saveSelectedElection() async {

@@ -9,8 +9,6 @@ import '../services/nostr_service.dart';
 import '../services/nostr_key_manager.dart';
 import '../services/crypto_service.dart';
 import '../services/voter_session_service.dart';
-import '../services/blind_signature_processor.dart';
-import '../models/message.dart';
 import '../config/app_config.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -25,71 +23,15 @@ class ElectionsScreen extends StatefulWidget {
 }
 
 class _ElectionsScreenState extends State<ElectionsScreen> {
-  StreamSubscription? _messageSubscription;
-  StreamSubscription? _errorSubscription;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ElectionProvider>().loadElections();
-      _setupMessageListeners();
     });
   }
 
-  @override
-  void dispose() {
-    _messageSubscription?.cancel();
-    _errorSubscription?.cancel();
-    super.dispose();
-  }
-
-  /// Setup listeners for incoming Gift Wrap messages
-  void _setupMessageListeners() {
-    final nostr = NostrService.instance;
-    
-    // Listen for incoming messages
-    _messageSubscription = nostr.messageStream.listen((message) {
-      debugPrint('📨 Received message in ElectionsScreen: $message');
-      _handleIncomingMessage(message);
-    });
-
-    // Listen for errors
-    _errorSubscription = nostr.errorStream.listen((error) {
-      debugPrint('❌ NostrService error: $error');
-      // Could show user-friendly error message here
-    });
-  }
-
-  /// Handle incoming messages from Gift Wrap events
-  Future<void> _handleIncomingMessage(Message message) async {
-    try {
-      debugPrint('🔄 ElectionsScreen: Processing message: $message');
-      debugPrint('   Kind: ${message.kind}');
-      debugPrint('   Election ID: ${message.id}');
-      debugPrint('   isTokenMessage: ${message.isTokenMessage}');
-      debugPrint('   isVoteMessage: ${message.isVoteMessage}');
-      debugPrint('   isErrorMessage: ${message.isErrorMessage}');
-      
-      final processor = BlindSignatureProcessor.instance;
-      final success = await processor.processMessage(message);
-      
-      debugPrint('🔄 ElectionsScreen: Message processing result: $success');
-      
-      if (success) {
-        if (message.isTokenMessage) {
-          debugPrint('✅ Blind signature processed successfully for election: ${message.id}');
-        } else if (message.isErrorMessage) {
-          debugPrint('❌ Error message processed for election: ${message.id}');
-        }
-      } else {
-        debugPrint('❌ Failed to process message for election: ${message.id}');
-      }
-    } catch (e) {
-      debugPrint('❌ Error handling incoming message: $e');
-      debugPrint('❌ Stack trace: ${StackTrace.current}');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {

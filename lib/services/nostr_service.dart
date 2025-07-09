@@ -7,6 +7,7 @@ import '../models/message.dart';
 import '../models/nostr_event.dart';
 import 'election_results_service.dart';
 import 'subscription_manager.dart';
+import 'message_processor.dart';
 
 class NostrService {
   static NostrService? _instance;
@@ -79,6 +80,10 @@ class NostrService {
       // The init method will throw an exception if connection fails
       SubscriptionManager.instance.initialize(_nostr);
 
+      // Initialize centralized message processor
+      MessageProcessor.instance.initialize();
+      MessageProcessor.instance.setupMessageSubscription(_messageController.stream);
+
       _connected = true;
       debugPrint(
         '✅ Successfully connected to Nostr relays: ${relayUrls.join(', ')}',
@@ -118,6 +123,9 @@ class NostrService {
         SubscriptionManager.instance.unsubscribe(_giftWrapHandlerId!);
         _giftWrapHandlerId = null;
       }
+
+      // Dispose message processor
+      MessageProcessor.instance.dispose();
 
       // Close all relay connections with timeout
       await Future.any([
