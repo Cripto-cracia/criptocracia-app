@@ -258,17 +258,10 @@ class NostrService {
       }
 
       debugPrint('✅ Message parsed successfully: $message');
-      debugPrint('📤 Emitting message through stream controller');
-      debugPrint(
-        '   Stream controller is closed: ${_messageController.isClosed}',
-      );
-      debugPrint('   Stream has listeners: ${_messageController.hasListener}');
 
       // Emit the message through the stream
       if (!_messageController.isClosed) {
         _messageController.add(message);
-        debugPrint('✅ Message emitted to stream successfully');
-        debugPrint('   Message details: kind=${message.kind}, electionId=${message.electionId}');
       } else {
         debugPrint('❌ Cannot emit message - stream controller is closed');
       }

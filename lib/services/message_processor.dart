@@ -22,26 +22,19 @@ class MessageProcessor {
   /// Initialize the message processor with NostrService
   void initialize() {
     if (_isInitialized) {
-      debugPrint('🔄 MessageProcessor already initialized');
       return;
     }
 
     debugPrint('🚀 Initializing centralized MessageProcessor');
     _isInitialized = true;
-    
-    // This will be set up when NostrService connects
-    debugPrint('✅ MessageProcessor initialized successfully');
   }
 
   /// Set up message subscription from NostrService
   void setupMessageSubscription(Stream<Message> messageStream) {
     if (_messageSubscription != null) {
-      debugPrint('🔄 MessageProcessor: Message subscription already active');
-      return;
+      _messageSubscription?.cancel();
     }
 
-    debugPrint('🎧 MessageProcessor: Setting up message subscription');
-    
     _messageSubscription = messageStream.listen(
       (message) {
         _handleMessage(message);
@@ -50,8 +43,6 @@ class MessageProcessor {
         debugPrint('❌ MessageProcessor: Stream error: $error');
       },
     );
-    
-    debugPrint('✅ MessageProcessor: Message subscription active');
   }
 
   /// Handle incoming messages with deduplication
@@ -60,37 +51,20 @@ class MessageProcessor {
       // Create a unique identifier for this message
       final messageId = _createMessageId(message);
       
-      debugPrint('📨 MessageProcessor: Received message');
-      debugPrint('   ID: $messageId');
-      debugPrint('   Kind: ${message.kind}');
-      debugPrint('   Election ID: ${message.electionId}');
-      
       // Check if we've already processed this message
       if (_processedMessageIds.contains(messageId)) {
-        debugPrint('⚠️ MessageProcessor: Message already processed, skipping');
         return;
       }
       
       // Mark message as processed
       _processedMessageIds.add(messageId);
-      debugPrint('✅ MessageProcessor: Processing new message');
       
       // Process the message using BlindSignatureProcessor
       final processor = BlindSignatureProcessor.instance;
       final success = await processor.processMessage(message);
       
-      debugPrint('🔄 MessageProcessor: Processing result: $success');
-      
-      if (success) {
-        if (message.isTokenMessage) {
-          debugPrint('🎫 MessageProcessor: Token message processed successfully');
-        } else if (message.isErrorMessage) {
-          debugPrint('❌ MessageProcessor: Error message processed');
-        } else if (message.isVoteMessage) {
-          debugPrint('🗳️ MessageProcessor: Vote message processed');
-        }
-      } else {
-        debugPrint('❌ MessageProcessor: Failed to process message');
+      if (!success) {
+        debugPrint('❌ MessageProcessor: Failed to process message kind ${message.kind}');
       }
       
       // Clean up old message IDs to prevent memory leaks
@@ -125,20 +99,15 @@ class MessageProcessor {
       for (final id in toRemove) {
         _processedMessageIds.remove(id);
       }
-      debugPrint('🧹 MessageProcessor: Cleaned up $excess old message IDs');
     }
   }
 
   /// Stop the message processor and clean up resources
   void dispose() {
-    debugPrint('🛑 MessageProcessor: Disposing');
-    
     _messageSubscription?.cancel();
     _messageSubscription = null;
     _processedMessageIds.clear();
     _isInitialized = false;
-    
-    debugPrint('✅ MessageProcessor: Disposed successfully');
   }
 
   /// Get debug info about the processor state

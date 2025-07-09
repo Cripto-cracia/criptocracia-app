@@ -149,7 +149,6 @@ class BlindSignatureProcessor {
 
       // Notify UI that vote token is now available
       VoterSessionService.emitVoteTokenAvailable(message.electionId);
-      debugPrint('📢 Emitted vote token available event for UI');
 
       return true;
     } catch (e) {

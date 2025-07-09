@@ -244,12 +244,15 @@ class VoterSessionService {
 
   /// Emit vote token available event for an election
   static void emitVoteTokenAvailable(String electionId) {
-    debugPrint('🎫 Emitting vote token available for election: $electionId');
-    _voteTokenController.add(VoteTokenEvent(
+    debugPrint('🎫 Vote token available for election: $electionId');
+    
+    final event = VoteTokenEvent(
       electionId: electionId,
       isAvailable: true,
       timestamp: DateTime.now(),
-    ));
+    );
+    
+    _voteTokenController.add(event);
   }
 
   /// Emit token error event for an election
