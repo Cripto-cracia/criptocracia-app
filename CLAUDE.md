@@ -10,9 +10,13 @@ Criptocracia is an experimental, trustless open-source electronic voting system.
 
 ### Basic Flutter Commands
 - `flutter run` - Run the app in development mode with hot reload
+- `flutter run --dart-define=GIT_COMMIT=$(git rev-parse HEAD)` - Run with current git commit
 - `flutter build apk` - Build Android APK
+- `flutter build apk --dart-define=GIT_COMMIT=$(git rev-parse HEAD)` - Build APK with current git commit
 - `flutter build ios` - Build iOS app
+- `flutter build ios --dart-define=GIT_COMMIT=$(git rev-parse HEAD)` - Build iOS with current git commit
 - `flutter build web` - Build web version
+- `flutter build web --dart-define=GIT_COMMIT=$(git rev-parse HEAD)` - Build web with current git commit
 
 ### Testing and Code Quality
 - `flutter test` - Run all tests

@@ -381,7 +381,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _buildInfoRow(
                         context,
                         AppLocalizations.of(context).gitCommit,
-                        '3b9d154',
+                        () {
+                          const fullCommit = String.fromEnvironment('GIT_COMMIT', defaultValue: 'unknown');
+                          return fullCommit == 'unknown' ? fullCommit : fullCommit.substring(0, 7);
+                        }(),
                         monospace: true,
                       ),
                     ],
