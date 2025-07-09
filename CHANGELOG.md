@@ -5,6 +5,54 @@ All notable changes to the Criptocracia Flutter voter app are documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2025-07-09
+
+### Added
+- Show real commit hash on production builds.
+- Add `zapstore.yaml` config file.
+- Add QR code functionality for npub sharing in account screen.
+- Complete internationalization with English and Spanish support.
+- Add support for multiple Nostr relays.
+- Add localized status badges to election results list.
+- Implement detailed election results view in modal.
+- Implement Kind 3 error handling and enhance election services.
+- Implement complete blind signature voting protocol with comprehensive testing.
+- Implement NIP-59 compliant Gift Wrap processing with blind signature response handling.
+- Add comprehensive project documentation.
+- Implement complete voting session management and crypto operations.
+- Secure voter session storage with flutter_secure_storage.
+- Implement blind signature request.
+
+### Improved
+- Improve notification messages to users.
+- Centralized message processing to prevent duplicate notifications.
+- Add message listeners to `ElectionDetailScreen`.
+- Improve drawer with branding and version display.
+- Improve election card and results screen UI.
+- Filter old elections by end_time within 12 hours.
+- Add retry button for token requests and pull-to-refresh for elections.
+- Implement settings persistence and updated Nostr protocol.
+- Enhance device fingerprint security with encrypted storage.
+- Implement secure BIP32/BIP44 hierarchical deterministic key derivation.
+- Migrate from NDK to dart_nostr and replace flutter_secure_storage with Hive.
+
+### Fixed
+- Resolve duplicate token notifications.
+- Fix the token response handling issue.
+- Resolve election results filtering issue.
+- Restrict voting to in-progress elections only.
+- Add missing UI notification for successful token processing.
+- Resolve Flutter analysis warnings and info messages.
+- Add required permissions for GitHub Actions release creation.
+- Add consistent AppBar background to settings screen.
+- Remove build_runner step from GitHub workflow.
+- Resolve NostrEvent type conflicts and dart_nostr import issues.
+- Prevent duplicate vote token requests for same election.
+- Dispose of election results stream subscription to prevent memory leak.
+- Fix signature verification issues in voting protocol.
+- Fix async consistency in blind signature request flow.
+- Fix NostrService singleton pattern and improve public key generation.
+
 ## [0.3.2] - 2025-01-08
 
 ### Improved
@@ -161,7 +209,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Session Validation**: Cryptographic integrity verification of stored session data
 - **Recovery Methods**: Session cleanup and restoration capabilities
 
-#### CryptoService  
+#### CryptoService
 - **RSA Unblinding**: Complete implementation of signature unblinding using blinding factors
 - **Signature Verification**: Full RSA signature verification against messages
 - **Vote Token Processing**: End-to-end blind signature workflow processing
@@ -197,7 +245,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Technical Improvements
 - **Error Handling**: Enhanced exception handling throughout crypto operations
-- **Debug Logging**: Comprehensive logging for voting process troubleshooting  
+- **Debug Logging**: Comprehensive logging for voting process troubleshooting
 - **Type Safety**: Improved null safety and type checking
 - **Performance**: Reduced main thread blocking during crypto operations
 - **Testing**: Added comprehensive unit tests for crypto operations
@@ -237,7 +285,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Upgrade Path
 1. Existing installations will automatically migrate to new secure storage
-2. Old session data will be cleared for security (users need to restart voting process)  
+2. Old session data will be cleared for security (users need to restart voting process)
 3. Mnemonics are preserved across updates with enhanced security
 
 ### Dependencies Added
