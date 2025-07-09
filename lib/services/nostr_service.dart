@@ -260,6 +260,7 @@ class NostrService {
       if (!_messageController.isClosed) {
         _messageController.add(message);
         debugPrint('✅ Message emitted to stream successfully');
+        debugPrint('   Message details: kind=${message.kind}, electionId=${message.electionId}');
       } else {
         debugPrint('❌ Cannot emit message - stream controller is closed');
       }
