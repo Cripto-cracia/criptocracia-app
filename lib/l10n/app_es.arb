@@ -164,7 +164,7 @@
   "criticalInitializationError": "Error crítico de inicialización:",
 
   "tokenRequestTimeout": "⏰ Timeout de solicitud de token. El Coordinador Electoral puede no estar disponible.",
-  "voteTokenReceived": "✅ ¡Token de voto recibido! Ya puedes votar.",
+  "voteTokenReceived": "✅ ¡Ya estas habilitado para votar! Ahora solo debes esperar que inicie la votación.",
   "requestingVoteToken": "Solicitando token de voto... Por favor espera.",
   "needVoteTokenInstruction": "Necesitas solicitar un token de voto primero seleccionando esta elección de la lista de elecciones.",
   "sendingVote": "Enviando Voto...",

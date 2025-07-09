@@ -65,6 +65,9 @@ class NostrService {
       // Initialize dart_nostr with the relay
       _nostr = dart_nostr.Nostr.instance;
 
+      // Disable verbose library logs to reduce console noise
+      _nostr.disableLogs();
+
       // Use timeout for relay initialization
       await Future.any([
         _nostr.services.relays.init(relaysUrl: relayUrls),
@@ -82,7 +85,9 @@ class NostrService {
 
       // Initialize centralized message processor
       MessageProcessor.instance.initialize();
-      MessageProcessor.instance.setupMessageSubscription(_messageController.stream);
+      MessageProcessor.instance.setupMessageSubscription(
+        _messageController.stream,
+      );
 
       _connected = true;
       debugPrint(
@@ -245,9 +250,6 @@ class NostrService {
       }
       debugPrint('✅ Rumor timestamp valid: $rumorTimestamp');
 
-      debugPrint('📦 Parsing Message JSON from rumor content...');
-      debugPrint('   Content: ${rumor.content}');
-
       // Parse the rumor content as a Message
       final message = Message.fromJson(rumor.content!);
 
@@ -356,7 +358,7 @@ class NostrService {
         kind: 1,
         payload: base64.encode(blindedNonce),
       );
-      
+
       final payload = message.toJson();
 
       debugPrint('📦 Creating NIP-59 gift wrap...');
@@ -601,9 +603,11 @@ class NostrService {
 
           // Check if this election should be processed (if filter function provided)
           final shouldProcess = shouldProcessElection?.call(electionId) ?? true;
-          
+
           if (!shouldProcess) {
-            debugPrint('⏭️ Skipping results for filtered election: $electionId');
+            debugPrint(
+              '⏭️ Skipping results for filtered election: $electionId',
+            );
             return; // Skip this result event
           }
 

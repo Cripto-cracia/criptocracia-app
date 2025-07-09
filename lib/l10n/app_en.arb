@@ -719,7 +719,7 @@
   "@tokenRequestTimeout": {
     "description": "Token request timeout message"
   },
-  "voteTokenReceived": "✅ Vote token received! You can now vote.",
+  "voteTokenReceived": "✅ You are now eligible to vote! Now just wait for the voting to start.",
   "@voteTokenReceived": {
     "description": "Vote token received success message"
   },
