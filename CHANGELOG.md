@@ -5,6 +5,22 @@ All notable changes to the Criptocracia Flutter voter app are documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.4] - 2025-07-11
+
+### Fixed
+- Fixed token validation contradiction where recently processed tokens were not recognized
+- Fixed missing vote token success snackbar notification to users
+- Fixed duplicate vote token success snackbar showing twice
+- Improved modal drag area UX in elections results screen - entire modal surface now draggable
+- Fixed Flutter analyze issues: deprecated withOpacity usage, unused methods, and string interpolation
+- Enhanced token processing flow with better timing and user feedback
+
+### Improved
+- Better user experience with consistent success notifications for vote tokens
+- Enhanced debugging and logging for token processing workflow
+- Improved modal interaction in election results with full-surface drag support
+- Cleaner codebase with resolved static analysis issues
+
 ## [0.3.3] - 2025-07-09
 
 ### Added
