@@ -32,11 +32,19 @@ class _SubscriptionPool {
   bool get isEmpty => handlerIds.isEmpty;
 
   void routeEvent(dynamic event) {
-    for (final handler in handlers.values) {
+    debugPrint('🎯 Routing event to ${handlers.length} handlers');
+    debugPrint('   Event ID: ${event.id}');
+    debugPrint('   Event kind: ${event.kind}');
+    
+    for (final entry in handlers.entries) {
+      final handlerId = entry.key;
+      final handler = entry.value;
       try {
+        debugPrint('📬 Calling handler $handlerId');
         handler(event);
+        debugPrint('✅ Handler $handlerId completed successfully');
       } catch (e) {
-        debugPrint('⚠️ Handler error: $e');
+        debugPrint('⚠️ Handler $handlerId error: $e');
       }
     }
   }
@@ -79,19 +87,40 @@ class SubscriptionManager {
     final filterId = _generateFilterId(filter);
     final handlerId = 'handler_${++_handlerCounter}';
 
+    debugPrint('🔗 SubscriptionManager: Starting subscription');
+    debugPrint('   Filter ID: $filterId');
+    debugPrint('   Handler ID: $handlerId');
+    debugPrint('   Filter kinds: ${filter.kinds}');
+    debugPrint('   Filter p: ${filter.p}');
+
     final pool = _pools[filterId];
     if (pool != null) {
       // Reuse existing subscription
       pool.addHandler(handlerId, onEvent);
       debugPrint('🔄 Reusing subscription $filterId for handler $handlerId');
+      debugPrint('   Pool now has ${pool.handlerIds.length} handlers');
     } else {
       // Create new subscription
+      debugPrint('🆕 Creating new subscription for $filterId');
       final request = dart_nostr.NostrRequest(filters: [filter]);
       final stream = _nostr!.services.relays.startEventsSubscription(request: request);
       
       final subscription = stream.stream.listen(
-        (event) => _pools[filterId]?.routeEvent(event),
-        onError: (e) => debugPrint('❌ Subscription error: $e'),
+        (event) {
+          debugPrint('📥 SubscriptionManager: Received event for filter $filterId');
+          debugPrint('   Event ID: ${event.id}');
+          debugPrint('   Event kind: ${event.kind}');
+          debugPrint('   Event pubkey: ${event.pubkey}');
+          debugPrint('   Event tags: ${event.tags}');
+          debugPrint('   Routing to ${_pools[filterId]?.handlerIds.length ?? 0} handlers');
+          _pools[filterId]?.routeEvent(event);
+        },
+        onError: (e) {
+          debugPrint('❌ Subscription error for $filterId: $e');
+        },
+        onDone: () {
+          debugPrint('🔚 Subscription completed for $filterId');
+        },
       );
 
       final newPool = _SubscriptionPool(
@@ -103,6 +132,7 @@ class SubscriptionManager {
       _pools[filterId] = newPool;
       
       debugPrint('🆕 Created subscription $filterId for handler $handlerId');
+      debugPrint('   Total active pools: ${_pools.length}');
     }
 
     return handlerId;

@@ -12,6 +12,9 @@ class BlindSignatureProcessor {
       BlindSignatureProcessor._internal();
   static BlindSignatureProcessor get instance => _instance;
 
+  // Cache for RSA public keys to avoid repeated DER parsing
+  static final Map<String, PublicKey> _publicKeyCache = {};
+
   const BlindSignatureProcessor._internal();
 
   /// Process a blind signature response message (kind=1)
@@ -159,6 +162,7 @@ class BlindSignatureProcessor {
 
   /// Get the Election Coordinator's RSA public key for the given election
   /// This retrieves the election data and extracts the RSA public key
+  /// Uses caching to avoid repeated DER parsing
   Future<PublicKey?> _getElectionCoordinatorPublicKey(String electionId) async {
     try {
       debugPrint('🔑 Retrieving EC RSA public key for election: $electionId');
@@ -178,11 +182,21 @@ class BlindSignatureProcessor {
         return null;
       }
 
+      // Check cache first to avoid expensive DER parsing
+      if (_publicKeyCache.containsKey(rsaPubKeyBase64)) {
+        debugPrint('🚀 Using cached RSA public key for faster processing');
+        return _publicKeyCache[rsaPubKeyBase64];
+      }
+
       debugPrint('🔓 Converting Base64 RSA public key to PublicKey object');
       final der = base64.decode(
         rsaPubKeyBase64,
       ); // rsaPubKeyBase64 is Base64-encoded DER from Nostr event
       final publicKey = PublicKey.fromDer(der);
+
+      // Cache the public key for future use
+      _publicKeyCache[rsaPubKeyBase64] = publicKey;
+      debugPrint('💾 Cached RSA public key for faster future processing');
 
       debugPrint('✅ EC RSA public key retrieved successfully');
       return publicKey;
@@ -317,5 +331,20 @@ class BlindSignatureProcessor {
         debugPrint('❌ Unknown message kind: ${message.kind}');
         return false;
     }
+  }
+
+  /// Clear the public key cache to free memory
+  /// Should be called when the app is shutting down or when memory is low
+  static void clearCache() {
+    _publicKeyCache.clear();
+    debugPrint('🧹 Cleared RSA public key cache');
+  }
+
+  /// Get cache statistics for debugging
+  static Map<String, dynamic> getCacheStats() {
+    return {
+      'cached_keys': _publicKeyCache.length,
+      'cache_keys': _publicKeyCache.keys.map((key) => key.substring(0, 16)).toList(),
+    };
   }
 }

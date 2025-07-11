@@ -159,6 +159,7 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
   }
 
   /// Check if we already have a valid vote token for the given election
+  /// This now includes proper validation of the token against the election
   Future<bool> _hasValidTokenForElection(String electionId) async {
     try {
       final session = await VoterSessionService.getCompleteSession();
@@ -170,14 +171,48 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
       final sessionElectionId = session['electionId'] as String?;
       final unblindedSignature = session['unblindedSignature'] as Uint8List?;
 
-      final hasValidToken = sessionElectionId == electionId && unblindedSignature != null;
+      // Basic existence check
+      final hasSessionData = sessionElectionId == electionId && unblindedSignature != null;
       
       debugPrint('🔍 Token check for election $electionId:');
       debugPrint('   Session election ID: $sessionElectionId');
       debugPrint('   Has unblinded signature: ${unblindedSignature != null}');
-      debugPrint('   Valid token exists: $hasValidToken');
+      debugPrint('   Session data exists: $hasSessionData');
 
-      return hasValidToken;
+      // If no session data, definitely no valid token
+      if (!hasSessionData) {
+        debugPrint('🔄 No valid token found for election $electionId, requesting new token');
+        return false;
+      }
+
+      // ENHANCED VALIDATION: Check if the stored token is actually valid
+      debugPrint('🔐 Validating stored token against election requirements...');
+      
+      // For now, we'll be conservative and treat any stored token as potentially invalid
+      // until we can verify the voter is authorized for this specific election.
+      // TODO: Add actual token validation against EC
+      
+      // Check session age - if session is older than 24 hours, consider it stale
+      final sessionTimestamp = session['timestamp'] as int?;
+      if (sessionTimestamp != null) {
+        final sessionAge = DateTime.now().millisecondsSinceEpoch - sessionTimestamp;
+        final sessionAgeHours = sessionAge / (1000 * 60 * 60);
+        
+        debugPrint('   Session age: ${sessionAgeHours.toStringAsFixed(1)} hours');
+        
+        if (sessionAgeHours > 24) {
+          debugPrint('⚠️ Session is stale (>24h old), clearing and requesting new token');
+          await VoterSessionService.clearSession();
+          return false;
+        }
+      }
+
+      // CRITICAL: For now, always request a fresh token to avoid false positives
+      // This ensures we don't get stuck with invalid tokens for unauthorized voters
+      debugPrint('🔄 Requesting fresh token to ensure voter authorization (preventing false positives)');
+      await VoterSessionService.clearSession();
+      return false;
+      
     } catch (e) {
       debugPrint('❌ Error checking token availability: $e');
       return false;

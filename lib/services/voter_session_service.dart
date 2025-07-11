@@ -15,6 +15,8 @@ class VoterSessionService {
   static const _msgRandomizerKey = 'voter_msg_randomizer';
   static const _rsaPubKeyKey = 'voter_rsa_pub_key';
   static const _unblindedSignatureKey = 'voter_unblinded_signature';
+  static const _timestampKey = 'voter_session_timestamp';
+  static const _processingTimestampKey = 'voter_token_processing_timestamp';
 
   // Using SecureStorageService for all storage operations
 
@@ -50,6 +52,12 @@ class VoterSessionService {
     );
     await SecureStorageService.write(key: _electionIdKey, value: electionId);
     await SecureStorageService.write(key: _rsaPubKeyKey, value: rsaPubKey);
+    
+    // Store session creation timestamp for validation
+    await SecureStorageService.write(
+      key: _timestampKey, 
+      value: DateTime.now().millisecondsSinceEpoch.toString(),
+    );
 
     // Store blinding secret (needed for later unblinding)
     await SecureStorageService.write(
@@ -88,6 +96,13 @@ class VoterSessionService {
       key: _unblindedSignatureKey,
       value: base64.encode(unblindedSignature),
     );
+    
+    // Store token processing timestamp for validation logic
+    await SecureStorageService.write(
+      key: _processingTimestampKey,
+      value: DateTime.now().millisecondsSinceEpoch.toString(),
+    );
+    debugPrint('⏰ Stored token processing timestamp: ${DateTime.now()}');
 
     // NOTE: We do NOT overwrite the original randomizer here
     // The randomizer used in voting must be the same one used during blinding
@@ -149,6 +164,20 @@ class VoterSessionService {
     return await SecureStorageService.read(key: _rsaPubKeyKey);
   }
 
+  /// Get session creation timestamp
+  static Future<int?> getTimestamp() async {
+    final data = await SecureStorageService.read(key: _timestampKey);
+    if (data == null) return null;
+    return int.tryParse(data);
+  }
+
+  /// Get token processing timestamp
+  static Future<int?> getProcessingTimestamp() async {
+    final data = await SecureStorageService.read(key: _processingTimestampKey);
+    if (data == null) return null;
+    return int.tryParse(data);
+  }
+
   /// Clear all session data
   static Future<void> clearSession() async {
     debugPrint('🗑️ Clearing all voting session data');
@@ -161,6 +190,8 @@ class VoterSessionService {
     await SecureStorageService.delete(key: _msgRandomizerKey);
     await SecureStorageService.delete(key: _rsaPubKeyKey);
     await SecureStorageService.delete(key: _unblindedSignatureKey);
+    await SecureStorageService.delete(key: _timestampKey);
+    await SecureStorageService.delete(key: _processingTimestampKey);
 
     debugPrint('✅ Session data cleared successfully');
   }
@@ -206,6 +237,8 @@ class VoterSessionService {
       'messageRandomizer': await getMessageRandomizer(),
       'unblindedSignature': await getUnblindedSignature(),
       'rsaPubKey': await getRsaPubKey(),
+      'timestamp': await getTimestamp(),
+      'processingTimestamp': await getProcessingTimestamp(),
     };
   }
 

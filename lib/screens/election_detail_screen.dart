@@ -31,8 +31,10 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
   bool _hasVoteToken = false;
   bool _isRequestingToken = false;
   StreamSubscription<VoteTokenEvent>? _voteTokenSubscription;
+  StreamSubscription<String>? _processingStatusSubscription;
   Election? _currentElection; // Track current election state
   Timer? _tokenRequestTimeout; // Timeout for token requests
+  String? _processingStatus; // Current processing status for UI
 
   @override
   void initState() {
@@ -42,6 +44,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
     _saveSelectedElection();
     _checkVoteTokenAvailability();
     _startVoteTokenListener();
+    _startProcessingStatusListener();
     // Start automatic token request if needed
     _triggerAutomaticTokenRequestIfNeeded();
   }
@@ -49,6 +52,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
   @override
   void dispose() {
     _voteTokenSubscription?.cancel();
+    _processingStatusSubscription?.cancel();
     _tokenRequestTimeout?.cancel();
     super.dispose();
   }
@@ -64,13 +68,229 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
     }
   }
 
+  void _showUnauthorizedVoterDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.block, color: Colors.red),
+            const SizedBox(width: 12),
+            Text('Unauthorized Voter'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'You are not authorized to vote in this election.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Why am I seeing this?',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red[800],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '• You were not added to the voter list for this election\n'
+                    '• The election administrator controls who can vote\n'
+                    '• This prevents false "token available" messages',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.red[700],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Contact the election administrator if you believe this is an error.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pop(); // Go back to elections list
+            },
+            child: Text('Go Back'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: Text('Understood'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showNip59InfoDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.blue),
+            const SizedBox(width: 12),
+            Text('NIP-59 Security Protocol'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Your token request is being processed securely using NIP-59 protocol.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'What is NIP-59?',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '• Encrypts messages for privacy\n'
+                    '• Randomizes timestamps to prevent tracking\n'
+                    '• May require processing multiple events\n'
+                    '• Ensures your vote remains anonymous',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Got it'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _checkVoteTokenAvailability() async {
     try {
       final session = await VoterSessionService.getCompleteSession();
-      final hasToken =
+      
+      // Basic session check
+      final hasSessionData =
           session != null &&
           session['unblindedSignature'] != null &&
           session['electionId'] == widget.election.id;
+
+      debugPrint('🔍 Vote token check for election ${widget.election.id}:');
+      debugPrint('   Session data exists: $hasSessionData');
+      
+      // Add detailed session debugging
+      if (session != null) {
+        final sessionElectionId = session['electionId'] as String?;
+        final unblindedSig = session['unblindedSignature'] as Uint8List?;
+        final timestamp = session['timestamp'] as int?;
+        
+        debugPrint('🔍 Session Details:');
+        debugPrint('   Stored election ID: $sessionElectionId');
+        debugPrint('   Current election ID: ${widget.election.id}');
+        debugPrint('   Election ID match: ${sessionElectionId == widget.election.id}');
+        debugPrint('   Has unblinded signature: ${unblindedSig != null}');
+        debugPrint('   Session timestamp: ${timestamp != null ? DateTime.fromMillisecondsSinceEpoch(timestamp).toString() : 'null'}');
+        
+        if (timestamp != null) {
+          final age = DateTime.now().millisecondsSinceEpoch - timestamp;
+          final ageHours = age / (1000 * 60 * 60);
+          debugPrint('   Session age: ${ageHours.toStringAsFixed(2)} hours');
+        }
+      }
+
+      // ENHANCED VALIDATION: Smart validation that recognizes recent processing
+      bool hasValidToken = false;
+      
+      if (hasSessionData) {
+        debugPrint('🔐 Found session data, validating token...');
+        
+        // Check both session creation and processing timestamps
+        final sessionTimestamp = session['timestamp'] as int?;
+        final processingTimestamp = session['processingTimestamp'] as int?;
+        
+        if (sessionTimestamp != null) {
+          final sessionAge = DateTime.now().millisecondsSinceEpoch - sessionTimestamp;
+          final sessionAgeHours = sessionAge / (1000 * 60 * 60);
+          
+          debugPrint('   Session age: ${sessionAgeHours.toStringAsFixed(1)} hours');
+          
+          if (sessionAgeHours > 24) {
+            debugPrint('⚠️ Session is stale (>24h old), clearing session');
+            await VoterSessionService.clearSession();
+            hasValidToken = false;
+          } else {
+            // Check if token was recently processed (within last hour)
+            if (processingTimestamp != null) {
+              final processingAge = DateTime.now().millisecondsSinceEpoch - processingTimestamp;
+              final processingAgeMinutes = processingAge / (1000 * 60);
+              
+              debugPrint('   Token processing age: ${processingAgeMinutes.toStringAsFixed(1)} minutes');
+              debugPrint('   Token processed at: ${DateTime.fromMillisecondsSinceEpoch(processingTimestamp)}');
+              
+              if (processingAgeMinutes <= 60) {
+                // Token was recently processed and validated - trust it
+                debugPrint('✅ Token recently processed and validated, trusting stored token');
+                hasValidToken = true;
+              } else {
+                // Token is older, apply conservative validation
+                debugPrint('🔄 Token is older than 1 hour, applying conservative validation');
+                hasValidToken = false;
+              }
+            } else {
+              // No processing timestamp - either old session or unauthorized
+              debugPrint('⚠️ No processing timestamp found, applying conservative validation');
+              hasValidToken = false;
+            }
+          }
+        } else {
+          debugPrint('⚠️ Session missing timestamp, treating as invalid');
+          await VoterSessionService.clearSession();
+          hasValidToken = false;
+        }
+      }
 
       // Check if we have an initial session (which means token request was started)
       final hasInitialSession = await VoterSessionService.hasInitialSession();
@@ -78,10 +298,10 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
       final isRequestingForThisElection =
           hasInitialSession &&
           sessionElectionId == widget.election.id &&
-          !hasToken;
+          !hasValidToken;
 
       setState(() {
-        _hasVoteToken = hasToken;
+        _hasVoteToken = hasValidToken;
         _isRequestingToken = isRequestingForThisElection;
       });
 
@@ -132,10 +352,14 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
     // Cancel any existing timeout
     _tokenRequestTimeout?.cancel();
 
-    // Start a 60-second timeout for token requests
-    _tokenRequestTimeout = Timer(const Duration(seconds: 60), () {
+    // Start a 90-second timeout for token requests (increased from 60s)
+    _tokenRequestTimeout = Timer(const Duration(seconds: 90), () {
       if (mounted && _isRequestingToken) {
-        debugPrint('⏰ Token request timeout reached');
+        debugPrint('⏰ Token request timeout reached after 90 seconds');
+        debugPrint('🔍 Connection status: ${NostrService.instance.isConnected}');
+
+        // Stop connection health monitoring
+        NostrService.instance.stopConnectionHealthMonitoring();
 
         // Clear session data on timeout to allow retry
         _clearFailedSession();
@@ -143,14 +367,30 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
         setState(() {
           _isRequestingToken = false;
           _hasVoteToken = false;
+          _processingStatus = null; // Clear processing status
         });
 
-        // Show timeout message
+        // Show timeout message with NIP-59 educational info
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context).tokenRequestTimeout),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(AppLocalizations.of(context).tokenRequestTimeout),
+                const SizedBox(height: 6),
+                Text(
+                  'Processing multiple events due to NIP-59 security',
+                  style: const TextStyle(fontSize: 11, color: Colors.white70),
+                ),
+                Text(
+                  'Connection: ${NostrService.instance.isConnected ? "Connected" : "Disconnected"}',
+                  style: const TextStyle(fontSize: 11, color: Colors.white70),
+                ),
+              ],
+            ),
             backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 6),
+            duration: const Duration(seconds: 10),
             action: SnackBarAction(
               label: AppLocalizations.of(context).retry,
               textColor: Colors.white,
@@ -164,7 +404,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
       }
     });
 
-    debugPrint('⏰ Started 60-second timeout for token request');
+    debugPrint('⏰ Started 90-second timeout for token request');
   }
 
   /// Start a token request for this election
@@ -182,6 +422,9 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
 
       // Start timeout for this request
       _startTokenRequestTimeout();
+
+      // Start connection health monitoring during token waiting
+      NostrService.instance.startConnectionHealthMonitoring();
 
       // Call the actual token request implementation
       await _requestBlindSignature();
@@ -233,7 +476,12 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
       final nostr = NostrService.instance;
 
       // Start listening for Gift Wrap responses before sending the request
-      await nostr.startGiftWrapListener(voterPubHex, voterPrivHex);
+      // Pass the election ID for smart filtering and prioritization
+      await nostr.startGiftWrapListener(
+        voterPubHex, 
+        voterPrivHex,
+        expectedElectionId: election.id,
+      );
 
       // Send the blind signature request
       await nostr.sendBlindSignatureRequestSafe(
@@ -261,6 +509,24 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
     }
   }
 
+  void _startProcessingStatusListener() {
+    _processingStatusSubscription = NostrService.instance.processingStatusStream.listen(
+      (status) {
+        debugPrint('🔄 Processing status update: $status');
+        if (mounted) {
+          setState(() {
+            _processingStatus = status;
+          });
+        }
+      },
+      onError: (error) {
+        debugPrint('❌ Processing status stream error: $error');
+      },
+    );
+    
+    debugPrint('👂 Started listening for processing status updates');
+  }
+
   void _startVoteTokenListener() {
     _voteTokenSubscription = VoterSessionService.voteTokenStream.listen(
       (event) {
@@ -270,6 +536,9 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
         if (event.electionId == widget.election.id) {
           // Cancel timeout since we received a response
           _tokenRequestTimeout?.cancel();
+          
+          // Stop connection health monitoring
+          NostrService.instance.stopConnectionHealthMonitoring();
 
           if (event.isSuccess) {
             // Handle successful token receipt
@@ -282,6 +551,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
               setState(() {
                 _hasVoteToken = true;
                 _isRequestingToken = false;
+                _processingStatus = null; // Clear processing status
               });
 
               debugPrint(
@@ -312,12 +582,20 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
                 '🗑️ Clearing session data due to authorization error - allowing retry',
               );
               _clearFailedSession();
+              
+              // Show specific unauthorized voter dialog for clarity
+              if (event.errorType == 'Unauthorized Voter' || 
+                  (event.errorMessage?.contains('unauthorized-voter') ?? false)) {
+                _showUnauthorizedVoterDialog();
+                return; // Don't show the generic error snackbar
+              }
             }
 
             if (mounted) {
               setState(() {
                 _hasVoteToken = false;
                 _isRequestingToken = false; // Stop showing "requesting" state
+                _processingStatus = null; // Clear processing status
               });
 
               // Show error feedback with specific message
@@ -366,6 +644,42 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
     } catch (e) {
       debugPrint('❌ Error clearing failed session: $e');
     }
+  }
+
+  /// Manual session validation for debugging
+  Future<void> _debugValidateSession() async {
+    try {
+      debugPrint('🔧 DEBUG: Manual session validation triggered');
+      
+      final session = await VoterSessionService.getCompleteSession();
+      if (session == null) {
+        debugPrint('🔧 DEBUG: No session data found');
+        return;
+      }
+      
+      debugPrint('🔧 DEBUG: Full session contents:');
+      session.forEach((key, value) {
+        if (value is Uint8List) {
+          debugPrint('   $key: ${value.length} bytes');
+        } else {
+          debugPrint('   $key: $value');
+        }
+      });
+      
+      final isValid = await VoterSessionService.validateSession();
+      debugPrint('🔧 DEBUG: Session validation result: $isValid');
+      
+    } catch (e) {
+      debugPrint('🔧 DEBUG: Session validation error: $e');
+    }
+  }
+
+  /// Manual session clear for debugging
+  Future<void> _debugClearSession() async {
+    debugPrint('🔧 DEBUG: Manual session clear triggered');
+    await VoterSessionService.clearSession();
+    await _checkVoteTokenAvailability();
+    debugPrint('🔧 DEBUG: Session cleared and token status refreshed');
   }
 
   /// Manually request a token (retry mechanism)
@@ -618,19 +932,56 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
                           Icon(Icons.info_outline, color: Colors.orange),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: Text(
-                            _isRequestingToken
-                                ? AppLocalizations.of(
-                                    context,
-                                  ).requestingVoteToken
-                                : AppLocalizations.of(
-                                    context,
-                                  ).needVoteTokenInstruction,
-                            style: TextStyle(
-                              color: _isRequestingToken
-                                  ? Colors.blue[800]
-                                  : Colors.orange[800],
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _isRequestingToken
+                                    ? AppLocalizations.of(
+                                        context,
+                                      ).requestingVoteToken
+                                    : AppLocalizations.of(
+                                        context,
+                                      ).needVoteTokenInstruction,
+                                style: TextStyle(
+                                  color: _isRequestingToken
+                                      ? Colors.blue[800]
+                                      : Colors.orange[800],
+                                ),
+                              ),
+                              if (_processingStatus != null && _isRequestingToken) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        _processingStatus!,
+                                        style: TextStyle(
+                                          color: Colors.blue[600],
+                                          fontSize: 12,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    ),
+                                    if (_processingStatus!.contains('NIP-59') || 
+                                        _processingStatus!.contains('historical'))
+                                      IconButton(
+                                        onPressed: _showNip59InfoDialog,
+                                        icon: Icon(
+                                          Icons.info_outline,
+                                          size: 16,
+                                          color: Colors.blue[600],
+                                        ),
+                                        padding: EdgeInsets.zero,
+                                        constraints: BoxConstraints(
+                                          minWidth: 20,
+                                          minHeight: 20,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ],

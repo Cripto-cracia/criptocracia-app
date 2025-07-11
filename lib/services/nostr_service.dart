@@ -19,6 +19,8 @@ class NostrService {
   bool _connected = false;
   bool _connecting = false;
   String? _giftWrapHandlerId;
+  String? _debugAllEventsHandlerId;
+  Timer? _connectionHealthTimer;
   late dart_nostr.Nostr _nostr;
   dart_nostr.NostrKeyPairs? _currentKeyPair;
 
@@ -26,6 +28,8 @@ class NostrService {
   final StreamController<Message> _messageController =
       StreamController<Message>.broadcast();
   final StreamController<String> _errorController =
+      StreamController<String>.broadcast();
+  final StreamController<String> _processingStatusController =
       StreamController<String>.broadcast();
 
   NostrService._internal();
@@ -38,6 +42,9 @@ class NostrService {
 
   /// Stream of error messages during message processing
   Stream<String> get errorStream => _errorController.stream;
+
+  /// Stream of processing status updates during gift wrap handling
+  Stream<String> get processingStatusStream => _processingStatusController.stream;
 
   Future<void> connect(List<String> relayUrls) async {
     if (_connected) {
@@ -128,6 +135,9 @@ class NostrService {
         SubscriptionManager.instance.unsubscribe(_giftWrapHandlerId!);
         _giftWrapHandlerId = null;
       }
+      
+      // Stop connection health monitoring
+      stopConnectionHealthMonitoring();
 
       // Dispose message processor
       MessageProcessor.instance.dispose();
@@ -157,19 +167,25 @@ class NostrService {
   /// This will listen for blind signature responses and other encrypted messages
   Future<void> startGiftWrapListener(
     String voterPubKeyHex,
-    String voterPrivKeyHex,
-  ) async {
+    String voterPrivKeyHex, {
+    String? expectedElectionId,
+  }) async {
     if (!_connected) {
       throw Exception('Not connected to relay. Connect first.');
     }
 
     if (_giftWrapHandlerId != null) {
-      debugPrint('🎁 Gift Wrap listener already active');
+      debugPrint('🎁 Gift Wrap listener already active for: ${_giftWrapHandlerId}');
       return;
     }
 
     try {
       debugPrint('🎁 Starting Gift Wrap listener for voter: $voterPubKeyHex');
+      debugPrint('🔍 Connection status: $_connected');
+      debugPrint('🔍 Relay status: ${_nostr.runtimeType}');
+      if (expectedElectionId != null) {
+        debugPrint('🎯 Expected election ID: $expectedElectionId (will prioritize this election)');
+      }
 
       // Create filter for Gift Wrap events (kind 1059) directed to this voter
       // Note: No 'since' parameter due to NIP-59 timestamp randomization
@@ -183,6 +199,12 @@ class NostrService {
         ), // gift wraps events have time tweaked
       );
 
+      debugPrint('🔍 Gift Wrap filter details:');
+      debugPrint('   Kinds: ${filter.kinds}');
+      debugPrint('   P tags: ${filter.p}');
+      debugPrint('   Limit: ${filter.limit}');
+      debugPrint('   Since: ${filter.since}');
+
       _giftWrapHandlerId = SubscriptionManager.instance.subscribe(
         filter: filter,
         onEvent: (dartNostrEvent) async {
@@ -191,11 +213,29 @@ class NostrService {
           debugPrint('   Kind: ${dartNostrEvent.kind}');
           debugPrint('   Pubkey: ${dartNostrEvent.pubkey}');
           debugPrint('   Created at: ${dartNostrEvent.createdAt}');
-          await _handleGiftWrapEvent(dartNostrEvent, voterPrivKeyHex);
+          debugPrint('   Tags: ${dartNostrEvent.tags}');
+          await _handleGiftWrapEvent(
+            dartNostrEvent, 
+            voterPrivKeyHex,
+            expectedElectionId: expectedElectionId,
+          );
         },
       );
 
       debugPrint('✅ Gift Wrap listener started successfully');
+      debugPrint('   Handler ID: $_giftWrapHandlerId');
+      
+      // Log subscription manager stats
+      final stats = SubscriptionManager.instance.getStats();
+      debugPrint('📊 Subscription Manager Stats: $stats');
+      
+      // Add a debug subscription to catch ALL events for troubleshooting
+      await _startDebugAllEventsListener();
+      
+      // Add a small delay to ensure subscription is fully established
+      await Future.delayed(const Duration(milliseconds: 1000));
+      debugPrint('✅ Gift Wrap subscription should now be active');
+      
     } catch (e) {
       debugPrint('❌ Failed to start Gift Wrap listener: $e');
       _errorController.add('Failed to start Gift Wrap listener: $e');
@@ -206,10 +246,16 @@ class NostrService {
   /// Handle incoming Gift Wrap events and extract messages
   Future<void> _handleGiftWrapEvent(
     dynamic dartNostrEvent,
-    String voterPrivKeyHex,
-  ) async {
+    String voterPrivKeyHex, {
+    String? expectedElectionId,
+  }) async {
     try {
       debugPrint('📡 Received Gift Wrap event: ${dartNostrEvent.id}');
+      
+      // Emit processing status for UI feedback
+      if (!_processingStatusController.isClosed) {
+        _processingStatusController.add('Processing incoming token...');
+      }
 
       // Events received from relays are already signature-validated by the relay
       // and dart_nostr library, so we can proceed directly to decryption
@@ -218,6 +264,11 @@ class NostrService {
       );
 
       debugPrint('🎁 Extracting NIP-59 rumor...');
+      
+      // Emit decryption status
+      if (!_processingStatusController.isClosed) {
+        _processingStatusController.add('Decrypting gift wrap event...');
+      }
 
       // Extract the rumor using NIP-59 decryption
       final nostrKeyPairs = _nostr.services.keys
@@ -260,6 +311,24 @@ class NostrService {
       }
 
       debugPrint('✅ Message parsed successfully: $message');
+      
+      // Smart pre-filtering: If we have an expected election ID, prioritize or filter accordingly
+      if (expectedElectionId != null) {
+        if (message.electionId == expectedElectionId) {
+          debugPrint('🎯 PRIORITY: Found message for expected election $expectedElectionId');
+          // Emit success status for expected election
+          if (!_processingStatusController.isClosed) {
+            _processingStatusController.add('Found token for current election!');
+          }
+        } else {
+          debugPrint('⏭️ FILTERING: Message for election ${message.electionId}, expected $expectedElectionId');
+          debugPrint('   Will process but with lower priority (NIP-59 compliance)');
+          // Emit filtering status with educational message
+          if (!_processingStatusController.isClosed) {
+            _processingStatusController.add('Processing historical events (NIP-59 security protocol)...');
+          }
+        }
+      }
 
       // Emit the message through the stream
       if (!_messageController.isClosed) {
@@ -280,6 +349,85 @@ class NostrService {
       SubscriptionManager.instance.unsubscribe(_giftWrapHandlerId!);
       _giftWrapHandlerId = null;
       debugPrint('✅ Gift Wrap listener stopped');
+    }
+    
+    // Also stop debug listener
+    if (_debugAllEventsHandlerId != null) {
+      debugPrint('🛑 Stopping debug all events listener');
+      SubscriptionManager.instance.unsubscribe(_debugAllEventsHandlerId!);
+      _debugAllEventsHandlerId = null;
+      debugPrint('✅ Debug all events listener stopped');
+    }
+  }
+
+  /// Start a debug listener for ALL events to troubleshoot connectivity
+  Future<void> _startDebugAllEventsListener() async {
+    try {
+      debugPrint('🔍 Starting debug listener for ALL events (troubleshooting)');
+      
+      // Create a very broad filter to catch all events
+      final debugFilter = dart_nostr.NostrFilter(
+        kinds: [1, 1059, 35000, 35001], // Common event types
+        limit: 50,
+        since: DateTime.now().subtract(const Duration(minutes: 5)),
+      );
+      
+      _debugAllEventsHandlerId = SubscriptionManager.instance.subscribe(
+        filter: debugFilter,
+        onEvent: (dartNostrEvent) async {
+          debugPrint('🐛 DEBUG: Received ANY event');
+          debugPrint('   Event ID: ${dartNostrEvent.id}');
+          debugPrint('   Kind: ${dartNostrEvent.kind}');
+          debugPrint('   Pubkey: ${dartNostrEvent.pubkey}');
+          debugPrint('   Created at: ${dartNostrEvent.createdAt}');
+          debugPrint('   Tags: ${dartNostrEvent.tags}');
+          debugPrint('   Content length: ${dartNostrEvent.content?.length ?? 0}');
+          
+          // Check if this event has P tags pointing to our voter
+          final pTags = dartNostrEvent.tags?.where((tag) => tag.isNotEmpty && tag[0] == 'p');
+          if (pTags != null && pTags.isNotEmpty) {
+            debugPrint('   P tags found: ${pTags.map((tag) => tag.length > 1 ? tag[1] : 'empty').toList()}');
+          }
+        },
+      );
+      
+      debugPrint('✅ Debug all events listener started with ID: $_debugAllEventsHandlerId');
+    } catch (e) {
+      debugPrint('❌ Failed to start debug all events listener: $e');
+    }
+  }
+
+  /// Start monitoring connection health during token waiting
+  void startConnectionHealthMonitoring() {
+    _connectionHealthTimer?.cancel();
+    
+    debugPrint('💗 Starting connection health monitoring');
+    _connectionHealthTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      _checkConnectionHealth();
+    });
+  }
+
+  /// Stop connection health monitoring
+  void stopConnectionHealthMonitoring() {
+    _connectionHealthTimer?.cancel();
+    _connectionHealthTimer = null;
+    debugPrint('💗 Stopped connection health monitoring');
+  }
+
+  /// Check connection health and log status
+  void _checkConnectionHealth() {
+    debugPrint('💗 Connection Health Check:');
+    debugPrint('   Connected: $_connected');
+    debugPrint('   Connecting: $_connecting');
+    debugPrint('   Gift Wrap Handler: ${_giftWrapHandlerId != null ? "Active" : "Inactive"}');
+    debugPrint('   Debug Handler: ${_debugAllEventsHandlerId != null ? "Active" : "Inactive"}');
+    
+    final stats = SubscriptionManager.instance.getStats();
+    debugPrint('   Active Subscriptions: ${stats["active_subscriptions"]}');
+    debugPrint('   Total Handlers: ${stats["total_handlers"]}');
+    
+    if (!_connected && !_connecting) {
+      debugPrint('⚠️ Connection lost - may need to reconnect');
     }
   }
 
@@ -687,6 +835,9 @@ class NostrService {
     }
     if (!_errorController.isClosed) {
       _errorController.close();
+    }
+    if (!_processingStatusController.isClosed) {
+      _processingStatusController.close();
     }
 
     // Cancel active subscriptions
