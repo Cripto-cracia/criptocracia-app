@@ -175,7 +175,7 @@ class NostrService {
     }
 
     if (_giftWrapHandlerId != null) {
-      debugPrint('🎁 Gift Wrap listener already active for: ${_giftWrapHandlerId}');
+      debugPrint('🎁 Gift Wrap listener already active for: $_giftWrapHandlerId');
       return;
     }
 

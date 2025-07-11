@@ -109,98 +109,94 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
         maxChildSize: 0.9,
         minChildSize: 0.4,
         expand: false,
-        builder: (context, scrollController) => Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              // Handle bar
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              // Header
-              Text(
-                result.electionName,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              // Status badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _getStatusColor(result.electionStatus),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  _getStatusDisplayText(result.electionStatus),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+        builder: (context, scrollController) => SingleChildScrollView(
+          controller: scrollController,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle bar
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Election ID: ${result.electionId}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey[600],
+                // Header
+                Text(
+                  result.electionName,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-              ),
-              const SizedBox(height: 24),
-              // Election Results
-              Expanded(
-                child: Column(
-                  children: [
-                    // Show basic stats
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
+                const SizedBox(height: 8),
+                // Status badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _getStatusColor(result.electionStatus),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    _getStatusDisplayText(result.electionStatus),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Election ID: ${result.electionId}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Show basic stats
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        Text(
+                          AppLocalizations.of(context).electionResults,
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
-                            Text(
-                              AppLocalizations.of(context).electionResults,
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceAround,
-                              children: [
-                                _buildStatItem(AppLocalizations.of(context).totalVotesLabel, result.totalVotes.toString()),
-                                _buildStatItem(AppLocalizations.of(context).candidatesLabel, result.candidateVotes.length.toString()),
-                              ],
-                            ),
+                            _buildStatItem(AppLocalizations.of(context).totalVotesLabel, result.totalVotes.toString()),
+                            _buildStatItem(AppLocalizations.of(context).candidatesLabel, result.candidateVotes.length.toString()),
                           ],
                         ),
-                      ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    // Candidate results list
-                    Expanded(
-                      child: _buildCandidateResultsList(result, scrollController),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              // Close button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(AppLocalizations.of(context).close),
+                const SizedBox(height: 16),
+                // Candidate results list
+                _buildCandidateResultsList(result, null),
+                const SizedBox(height: 24),
+                // Close button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(AppLocalizations.of(context).close),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -411,25 +407,28 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
     );
   }
 
-  Widget _buildCandidateResultsList(ElectionResult result, ScrollController scrollController) {
+  Widget _buildCandidateResultsList(ElectionResult result, ScrollController? scrollController) {
     if (result.candidateVotes.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.inbox_outlined,
-              size: 48,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              AppLocalizations.of(context).noVotesRecordedYet,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Colors.grey[500],
+      return SizedBox(
+        height: 200,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.inbox_outlined,
+                size: 48,
+                color: Colors.grey[400],
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              Text(
+                AppLocalizations.of(context).noVotesRecordedYet,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Colors.grey[500],
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -438,6 +437,8 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
 
     return ListView.builder(
       controller: scrollController,
+      physics: scrollController == null ? const NeverScrollableScrollPhysics() : null,
+      shrinkWrap: true,
       padding: const EdgeInsets.symmetric(horizontal: 4),
       itemCount: sortedCandidates.length,
       itemBuilder: (context, index) {

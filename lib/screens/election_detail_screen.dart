@@ -95,9 +95,9 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
+                color: Colors.red.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.withOpacity(0.3)),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -720,41 +720,6 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
     }
   }
 
-  /// Manual session validation for debugging
-  Future<void> _debugValidateSession() async {
-    try {
-      debugPrint('🔧 DEBUG: Manual session validation triggered');
-      
-      final session = await VoterSessionService.getCompleteSession();
-      if (session == null) {
-        debugPrint('🔧 DEBUG: No session data found');
-        return;
-      }
-      
-      debugPrint('🔧 DEBUG: Full session contents:');
-      session.forEach((key, value) {
-        if (value is Uint8List) {
-          debugPrint('   $key: ${value.length} bytes');
-        } else {
-          debugPrint('   $key: $value');
-        }
-      });
-      
-      final isValid = await VoterSessionService.validateSession();
-      debugPrint('🔧 DEBUG: Session validation result: $isValid');
-      
-    } catch (e) {
-      debugPrint('🔧 DEBUG: Session validation error: $e');
-    }
-  }
-
-  /// Manual session clear for debugging
-  Future<void> _debugClearSession() async {
-    debugPrint('🔧 DEBUG: Manual session clear triggered');
-    await VoterSessionService.clearSession();
-    await _checkVoteTokenAvailability();
-    debugPrint('🔧 DEBUG: Session cleared and token status refreshed');
-  }
 
   /// Manually request a token (retry mechanism)
   Future<void> _requestTokenManually() async {
