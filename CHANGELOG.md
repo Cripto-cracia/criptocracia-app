@@ -5,6 +5,13 @@ All notable changes to the Criptocracia Flutter voter app are documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.5] - 2025-07-11
+
+### Improved
+- Cleaned up verbose debug logging that cluttered output with repetitive election event information
+- Removed noisy event reception, filtering, and processing logs while preserving essential debugging
+- Improved log readability for better development experience
+
 ## [0.3.4] - 2025-07-11
 
 ### Fixed
