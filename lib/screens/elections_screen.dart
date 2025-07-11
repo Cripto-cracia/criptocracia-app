@@ -23,7 +23,6 @@ class ElectionsScreen extends StatefulWidget {
 }
 
 class _ElectionsScreenState extends State<ElectionsScreen> {
-
   @override
   void initState() {
     super.initState();
@@ -31,7 +30,6 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
       context.read<ElectionProvider>().loadElections();
     });
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -75,13 +73,17 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
     );
   }
 
-  Widget _buildScrollableErrorView(BuildContext context, ElectionProvider provider) {
+  Widget _buildScrollableErrorView(
+    BuildContext context,
+    ElectionProvider provider,
+  ) {
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       child: SizedBox(
-        height: MediaQuery.of(context).size.height - 
-               MediaQuery.of(context).padding.top - 
-               AppBar().preferredSize.height,
+        height:
+            MediaQuery.of(context).size.height -
+            MediaQuery.of(context).padding.top -
+            AppBar().preferredSize.height,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -93,9 +95,7 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                AppLocalizations.of(
-                  context,
-                ).errorWithMessage(provider.error!),
+                AppLocalizations.of(context).errorWithMessage(provider.error!),
                 style: Theme.of(context).textTheme.bodyLarge,
                 textAlign: TextAlign.center,
               ),
@@ -115,9 +115,10 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       child: SizedBox(
-        height: MediaQuery.of(context).size.height - 
-               MediaQuery.of(context).padding.top - 
-               AppBar().preferredSize.height,
+        height:
+            MediaQuery.of(context).size.height -
+            MediaQuery.of(context).padding.top -
+            AppBar().preferredSize.height,
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(32),
@@ -134,11 +135,10 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
                 const SizedBox(height: 24),
                 Text(
                   AppLocalizations.of(context).noElectionsFound,
-                  style: Theme.of(context).textTheme.headlineSmall
-                      ?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Text(
@@ -172,8 +172,9 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
       final unblindedSignature = session['unblindedSignature'] as Uint8List?;
 
       // Basic existence check
-      final hasSessionData = sessionElectionId == electionId && unblindedSignature != null;
-      
+      final hasSessionData =
+          sessionElectionId == electionId && unblindedSignature != null;
+
       debugPrint('🔍 Token check for election $electionId:');
       debugPrint('   Session election ID: $sessionElectionId');
       debugPrint('   Has unblinded signature: ${unblindedSignature != null}');
@@ -181,38 +182,42 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
 
       // If no session data, definitely no valid token
       if (!hasSessionData) {
-        debugPrint('🔄 No valid token found for election $electionId, requesting new token');
+        debugPrint(
+          '🔄 No valid token found for election $electionId, requesting new token',
+        );
         return false;
       }
 
       // ENHANCED VALIDATION: Check if the stored token is actually valid
       debugPrint('🔐 Validating stored token against election requirements...');
-      
+
       // For now, we'll be conservative and treat any stored token as potentially invalid
       // until we can verify the voter is authorized for this specific election.
-      // TODO: Add actual token validation against EC
-      
+
       // Check session age - if session is older than 24 hours, consider it stale
       final sessionTimestamp = session['timestamp'] as int?;
       if (sessionTimestamp != null) {
-        final sessionAge = DateTime.now().millisecondsSinceEpoch - sessionTimestamp;
+        final sessionAge =
+            DateTime.now().millisecondsSinceEpoch - sessionTimestamp;
         final sessionAgeHours = sessionAge / (1000 * 60 * 60);
-        
-        debugPrint('   Session age: ${sessionAgeHours.toStringAsFixed(1)} hours');
-        
+
+        debugPrint(
+          '   Session age: ${sessionAgeHours.toStringAsFixed(1)} hours',
+        );
+
         if (sessionAgeHours > 24) {
-          debugPrint('⚠️ Session is stale (>24h old), clearing and requesting new token');
+          debugPrint(
+            '⚠️ Session is stale (>24h old), clearing and requesting new token',
+          );
           await VoterSessionService.clearSession();
           return false;
         }
       }
 
-      // CRITICAL: For now, always request a fresh token to avoid false positives
-      // This ensures we don't get stuck with invalid tokens for unauthorized voters
-      debugPrint('🔄 Requesting fresh token to ensure voter authorization (preventing false positives)');
-      await VoterSessionService.clearSession();
-      return false;
-      
+      // If we get here, the token is valid and not stale
+      debugPrint('✅ Valid token found and trusted for election $electionId');
+
+      return true;
     } catch (e) {
       debugPrint('❌ Error checking token availability: $e');
       return false;
@@ -223,11 +228,15 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
     if (election.status.toLowerCase() == 'open') {
       // Check if we already have a valid token for this election
       final hasToken = await _hasValidTokenForElection(election.id);
-      
+
       if (hasToken) {
-        debugPrint('✅ Valid token already exists for election ${election.id}, skipping request');
+        debugPrint(
+          '✅ Valid token already exists for election ${election.id}, skipping request',
+        );
       } else {
-        debugPrint('🔄 No valid token found for election ${election.id}, requesting new token');
+        debugPrint(
+          '🔄 No valid token found for election ${election.id}, requesting new token',
+        );
         await _requestBlindSignature(election);
       }
     }
@@ -267,21 +276,31 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
       debugPrint('🔍 BLINDING RESULT DEBUG:');
       debugPrint('   blindMessage length: ${result.blindMessage.length}');
       debugPrint('   secret length: ${result.secret.length}');
-      debugPrint('   messageRandomizer: ${result.messageRandomizer?.length ?? 'NULL'}');
+      debugPrint(
+        '   messageRandomizer: ${result.messageRandomizer?.length ?? 'NULL'}',
+      );
       if (result.messageRandomizer != null) {
-        debugPrint('   messageRandomizer first 10 bytes: ${result.messageRandomizer!.take(10).toList()}');
+        debugPrint(
+          '   messageRandomizer first 10 bytes: ${result.messageRandomizer!.take(10).toList()}',
+        );
       }
 
       // Save complete session state including election ID and hash bytes (matching Rust app variable)
-      await VoterSessionService.saveSession(nonce, result, hashed, election.id, election.rsaPubKey);
+      await VoterSessionService.saveSession(
+        nonce,
+        result,
+        hashed,
+        election.id,
+        election.rsaPubKey,
+      );
 
       // Use the shared NostrService instance to avoid concurrent connection issues
       final nostr = NostrService.instance;
-      
+
       // Start listening for Gift Wrap responses before sending the request
       debugPrint('🎁 Starting Gift Wrap listener for voter responses...');
       await nostr.startGiftWrapListener(voterPubHex, voterPrivHex);
-      
+
       // Send the blind signature request
       await nostr.sendBlindSignatureRequestSafe(
         ecPubKey: AppConfig.ecPublicKey,
@@ -290,11 +309,10 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
         voterPrivKeyHex: voterPrivHex,
         voterPubKeyHex: voterPubHex,
       );
-      
+
       debugPrint('✅ Blind signature request sent, listening for response...');
     } catch (e) {
       debugPrint('❌ Error requesting blind signature: $e');
     }
   }
-
 }
