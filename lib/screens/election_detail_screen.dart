@@ -274,6 +274,23 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
                 // Token was recently processed and validated - trust it
                 debugPrint('✅ Token recently processed and validated, trusting stored token');
                 hasValidToken = true;
+                
+                // If token was processed very recently (< 5 minutes), show success snackbar
+                // This handles cases where validation runs after VoteTokenEvent emission
+                if (processingAgeMinutes <= 5 && mounted) {
+                  debugPrint('🎉 Showing snackbar for very recently processed token (${processingAgeMinutes.toStringAsFixed(1)} min ago)');
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(AppLocalizations.of(context).voteTokenReceived),
+                          backgroundColor: Colors.green,
+                          duration: const Duration(seconds: 5),
+                        ),
+                      );
+                    }
+                  });
+                }
               } else {
                 // Token is older, apply conservative validation
                 debugPrint('🔄 Token is older than 1 hour, applying conservative validation');
@@ -531,9 +548,17 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
     _voteTokenSubscription = VoterSessionService.voteTokenStream.listen(
       (event) {
         debugPrint('🔔 Received vote token event: $event');
+        debugPrint('🔔 Event details:');
+        debugPrint('   Election ID: ${event.electionId}');
+        debugPrint('   Is Available: ${event.isAvailable}');
+        debugPrint('   Is Success: ${event.isSuccess}');
+        debugPrint('   Is Error: ${event.isError}');
+        debugPrint('   Current _hasVoteToken: $_hasVoteToken');
+        debugPrint('   Current _isRequestingToken: $_isRequestingToken');
 
         // Only process events for this election
         if (event.electionId == widget.election.id) {
+          debugPrint('🎯 Processing event for current election: ${widget.election.id}');
           // Cancel timeout since we received a response
           _tokenRequestTimeout?.cancel();
           
@@ -548,6 +573,9 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
             );
 
             if (mounted) {
+              // Check if this is a fresh token event (not already recognized)
+              final wasTokenAlreadyAvailable = _hasVoteToken;
+              
               setState(() {
                 _hasVoteToken = true;
                 _isRequestingToken = false;
@@ -557,8 +585,11 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
               debugPrint(
                 '🔍 After setState - _hasVoteToken: $_hasVoteToken, _isRequestingToken: $_isRequestingToken',
               );
+              debugPrint('🔍 Was token already available: $wasTokenAlreadyAvailable');
 
-              // Show success feedback
+              // Always show success feedback for token events, regardless of previous state
+              // This ensures users get confirmation even if validation logic already recognized the token
+              debugPrint('🎉 Showing success snackbar for token receipt');
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(AppLocalizations.of(context).voteTokenReceived),

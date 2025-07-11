@@ -278,6 +278,7 @@ class VoterSessionService {
   /// Emit vote token available event for an election
   static void emitVoteTokenAvailable(String electionId) {
     debugPrint('🎫 Vote token available for election: $electionId');
+    debugPrint('🎫 Emitting VoteTokenEvent to stream...');
     
     final event = VoteTokenEvent(
       electionId: electionId,
@@ -285,7 +286,13 @@ class VoterSessionService {
       timestamp: DateTime.now(),
     );
     
+    debugPrint('🎫 Event details: isAvailable=${event.isAvailable}, isSuccess=${event.isSuccess}');
+    debugPrint('🎫 Stream controller closed: ${_voteTokenController.isClosed}');
+    debugPrint('🎫 Stream has listeners: ${_voteTokenController.hasListener}');
+    
     _voteTokenController.add(event);
+    
+    debugPrint('🎫 Event added to stream successfully');
   }
 
   /// Emit token error event for an election
