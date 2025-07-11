@@ -42,9 +42,10 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
     _currentElection = widget.election;
     // Save this election as the selected one when the user opens it
     _saveSelectedElection();
-    _checkVoteTokenAvailability();
+    // Start listeners BEFORE checking token availability to catch events
     _startVoteTokenListener();
     _startProcessingStatusListener();
+    _checkVoteTokenAvailability();
     // Start automatic token request if needed
     _triggerAutomaticTokenRequestIfNeeded();
   }
@@ -275,22 +276,8 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
                 debugPrint('✅ Token recently processed and validated, trusting stored token');
                 hasValidToken = true;
                 
-                // If token was processed very recently (< 5 minutes), show success snackbar
-                // This handles cases where validation runs after VoteTokenEvent emission
-                if (processingAgeMinutes <= 5 && mounted) {
-                  debugPrint('🎉 Showing snackbar for very recently processed token (${processingAgeMinutes.toStringAsFixed(1)} min ago)');
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(AppLocalizations.of(context).voteTokenReceived),
-                          backgroundColor: Colors.green,
-                          duration: const Duration(seconds: 5),
-                        ),
-                      );
-                    }
-                  });
-                }
+                // Note: No snackbar here to avoid duplicates
+                // Snackbar is shown through VoteTokenEvent stream for user feedback
               } else {
                 // Token is older, apply conservative validation
                 debugPrint('🔄 Token is older than 1 hour, applying conservative validation');
@@ -659,6 +646,62 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
     debugPrint(
       '🎧 Started listening for vote token events for election: ${widget.election.id}',
     );
+    
+    // Check for recently processed tokens that might have been missed
+    _checkForRecentlyProcessedToken();
+  }
+
+  /// Check for recently processed tokens and show snackbar if found
+  /// This handles cases where token was processed before listener was active
+  Future<void> _checkForRecentlyProcessedToken() async {
+    try {
+      final session = await VoterSessionService.getCompleteSession();
+      if (session == null) return;
+      
+      final sessionElectionId = session['electionId'] as String?;
+      final processingTimestamp = session['processingTimestamp'] as int?;
+      final unblindedSignature = session['unblindedSignature'] as Uint8List?;
+      
+      // Check if this session is for the current election and has a recent processing timestamp
+      if (sessionElectionId == widget.election.id && 
+          processingTimestamp != null && 
+          unblindedSignature != null) {
+        
+        final processingAge = DateTime.now().millisecondsSinceEpoch - processingTimestamp;
+        final processingAgeMinutes = processingAge / (1000 * 60);
+        
+        debugPrint('🔍 Found session for current election with processing age: ${processingAgeMinutes.toStringAsFixed(1)} minutes');
+        
+        // If token was processed very recently (< 5 minutes), show snackbar
+        if (processingAgeMinutes <= 5) {
+          debugPrint('🎉 Showing snackbar for recently processed token (before listener was active)');
+          
+          // Update state to reflect token availability
+          if (mounted) {
+            setState(() {
+              _hasVoteToken = true;
+              _isRequestingToken = false;
+              _processingStatus = null;
+            });
+            
+            // Show success snackbar with a small delay to ensure UI is ready
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(AppLocalizations.of(context).voteTokenReceived),
+                    backgroundColor: Colors.green,
+                    duration: const Duration(seconds: 5),
+                  ),
+                );
+              }
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Error checking for recently processed token: $e');
+    }
   }
 
   /// Clear failed session data to allow retry
