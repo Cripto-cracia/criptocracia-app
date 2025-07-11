@@ -243,9 +243,6 @@ class ElectionProvider with ChangeNotifier {
               final cutoffTime = now.subtract(const Duration(hours: 12));
               
               if (election.endTime.isBefore(cutoffTime)) {
-                debugPrint(
-                  '⏭️ Skipping old election during refresh: ${election.name} (ended: ${election.endTime})',
-                );
                 return; // Skip this old election
               }
 

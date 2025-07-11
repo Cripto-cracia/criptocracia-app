@@ -225,13 +225,6 @@ class NostrService {
       debugPrint('✅ Gift Wrap listener started successfully');
       debugPrint('   Handler ID: $_giftWrapHandlerId');
       
-      // Log subscription manager stats
-      final stats = SubscriptionManager.instance.getStats();
-      debugPrint('📊 Subscription Manager Stats: $stats');
-      
-      // Add a debug subscription to catch ALL events for troubleshooting
-      await _startDebugAllEventsListener();
-      
       // Add a small delay to ensure subscription is fully established
       await Future.delayed(const Duration(milliseconds: 1000));
       debugPrint('✅ Gift Wrap subscription should now be active');
@@ -351,51 +344,13 @@ class NostrService {
       debugPrint('✅ Gift Wrap listener stopped');
     }
     
-    // Also stop debug listener
+    // Also stop debug listener if it exists
     if (_debugAllEventsHandlerId != null) {
-      debugPrint('🛑 Stopping debug all events listener');
       SubscriptionManager.instance.unsubscribe(_debugAllEventsHandlerId!);
       _debugAllEventsHandlerId = null;
-      debugPrint('✅ Debug all events listener stopped');
     }
   }
 
-  /// Start a debug listener for ALL events to troubleshoot connectivity
-  Future<void> _startDebugAllEventsListener() async {
-    try {
-      debugPrint('🔍 Starting debug listener for ALL events (troubleshooting)');
-      
-      // Create a very broad filter to catch all events
-      final debugFilter = dart_nostr.NostrFilter(
-        kinds: [1, 1059, 35000, 35001], // Common event types
-        limit: 50,
-        since: DateTime.now().subtract(const Duration(minutes: 5)),
-      );
-      
-      _debugAllEventsHandlerId = SubscriptionManager.instance.subscribe(
-        filter: debugFilter,
-        onEvent: (dartNostrEvent) async {
-          debugPrint('🐛 DEBUG: Received ANY event');
-          debugPrint('   Event ID: ${dartNostrEvent.id}');
-          debugPrint('   Kind: ${dartNostrEvent.kind}');
-          debugPrint('   Pubkey: ${dartNostrEvent.pubkey}');
-          debugPrint('   Created at: ${dartNostrEvent.createdAt}');
-          debugPrint('   Tags: ${dartNostrEvent.tags}');
-          debugPrint('   Content length: ${dartNostrEvent.content?.length ?? 0}');
-          
-          // Check if this event has P tags pointing to our voter
-          final pTags = dartNostrEvent.tags?.where((tag) => tag.isNotEmpty && tag[0] == 'p');
-          if (pTags != null && pTags.isNotEmpty) {
-            debugPrint('   P tags found: ${pTags.map((tag) => tag.length > 1 ? tag[1] : 'empty').toList()}');
-          }
-        },
-      );
-      
-      debugPrint('✅ Debug all events listener started with ID: $_debugAllEventsHandlerId');
-    } catch (e) {
-      debugPrint('❌ Failed to start debug all events listener: $e');
-    }
-  }
 
   /// Start monitoring connection health during token waiting
   void startConnectionHealthMonitoring() {
@@ -670,26 +625,12 @@ class NostrService {
 
     // Convert dart_nostr events to our NostrEvent format
     return nostrStream.stream
-        .map((dartNostrEvent) {
-          debugPrint(
-            '📥 Received event: kind=${dartNostrEvent.kind}, id=${dartNostrEvent.id}, timestamp=${dartNostrEvent.createdAt}',
-          );
-          if (dartNostrEvent.kind == 35000) {
-            debugPrint('🗳️ Election event received in real-time!');
-          }
-          return dartNostrEvent;
-        })
         .where((dartNostrEvent) {
-          final hasContent = dartNostrEvent.content?.isNotEmpty ?? false;
-          debugPrint(
-            '🔍 Filtering event: kind=${dartNostrEvent.kind}, hasContent=$hasContent',
-          );
           return (dartNostrEvent.id?.isNotEmpty ?? false) &&
               (dartNostrEvent.content?.isNotEmpty ?? false) &&
               (dartNostrEvent.tags?.isNotEmpty ?? false);
         })
         .map((dartNostrEvent) {
-          debugPrint('✅ Processing valid event: ${dartNostrEvent.id}');
           return NostrEvent(
             id: dartNostrEvent.id ?? '',
             pubkey: dartNostrEvent.pubkey,
