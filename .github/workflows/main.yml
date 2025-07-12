@@ -147,9 +147,44 @@ jobs:
           new_version="${{ env.VERSION }}-alpha-${{ github.run_number }}"
           echo "VERSION=$new_version" >> $GITHUB_ENV
 
+      - name: Extract Changelog Content
+        if: steps.should_build.outputs.SHOULD_BUILD == 'true'
+        id: extract_changelog
+        run: |
+          VERSION="${{ env.VERSION }}"
+          echo "Extracting changelog for version $VERSION"
+          
+          # Check if CHANGELOG.md exists
+          if [ ! -f "CHANGELOG.md" ]; then
+            echo "CHANGELOG.md not found"
+            echo "CHANGELOG_CONTENT=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Extract content for the specific version
+          CHANGELOG_CONTENT=$(awk "
+            /^## \[$VERSION\]/ { found=1; next }
+            /^## \[/ && found { exit }
+            found && /^###/ { print }
+            found && /^-/ { print }
+            found && /^[[:space:]]*$/ { print }
+            found && !/^##/ && !/^###/ && !/^-/ && !/^[[:space:]]*$/ { print }
+          " CHANGELOG.md | sed '/^$/N;/^\n$/d')
+          
+          if [ -n "$CHANGELOG_CONTENT" ]; then
+            echo "Found changelog content for version $VERSION"
+            # Escape newlines and quotes for GitHub output
+            CHANGELOG_CONTENT=$(echo "$CHANGELOG_CONTENT" | sed ':a;N;$!ba;s/\n/\\n/g' | sed 's/"/\\"/g')
+            echo "CHANGELOG_CONTENT=$CHANGELOG_CONTENT" >> $GITHUB_OUTPUT
+          else
+            echo "No changelog content found for version $VERSION"
+            echo "CHANGELOG_CONTENT=" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create Release
         if: steps.should_build.outputs.SHOULD_BUILD == 'true'
         uses: ncipollo/release-action@v1
         with:
           artifacts: "build/app/outputs/flutter-apk/app-release.apk,build/app/outputs/bundle/release/app-release.aab,build/ios_build.tar.gz"
           tag: v${{ env.VERSION }}
+          body: ${{ steps.extract_changelog.outputs.CHANGELOG_CONTENT }}
