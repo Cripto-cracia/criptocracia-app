@@ -5,6 +5,26 @@ All notable changes to the Criptocracia Flutter voter app are documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.6] - 2025-07-12
+
+### Added
+- **Language Selection Settings**: Added comprehensive language selection functionality in settings screen
+- **Multi-language Support**: Users can now choose between System Default, English, and Spanish
+- **Persistent Language Preference**: Language selection is saved and persists across app restarts
+- **Real-time Language Switching**: Language changes apply immediately throughout the app
+- **Localized Settings UI**: All language selection interface elements properly localized
+
+### Enhanced
+- **Settings Screen**: Added new Language Selection section with intuitive radio button interface
+- **SettingsProvider**: Extended with locale management and persistent storage capabilities
+- **Main App Architecture**: Updated MaterialApp to reactively respond to language preference changes
+- **Internationalization**: Added 7 new localized strings for language selection functionality
+
+### Improved
+- **User Experience**: Clean, accessible language selection with clear descriptions and visual feedback
+- **Code Quality**: All static analysis issues resolved, maintaining high code standards
+- **Documentation**: Enhanced with comprehensive language selection implementation details
+
 ## [0.3.5] - 2025-07-11
 
 ### Improved
