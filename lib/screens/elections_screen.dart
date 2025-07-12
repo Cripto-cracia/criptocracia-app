@@ -26,9 +26,7 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ElectionProvider>().loadElections();
-    });
+    // Elections are already loaded in MainScreenState, no need to load again
   }
 
   @override

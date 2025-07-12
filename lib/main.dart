@@ -116,8 +116,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
-    // Initialize Nostr keys on first launch
-    _initializeKeys();
+    // Keys are already initialized in main(), no need to do it again
     // Start global election results subscription
     _startGlobalElectionResultsSubscription();
     // Load elections immediately to have metadata available
@@ -138,13 +137,6 @@ class _MainScreenState extends State<MainScreen> {
     debugPrint('✅ MainScreenState: Disposal completed');
   }
 
-  Future<void> _initializeKeys() async {
-    try {
-      await NostrKeyManager.initializeKeysIfNeeded();
-    } catch (e) {
-      debugPrint('Error initializing Nostr keys: $e');
-    }
-  }
 
   /// Load elections on app startup to ensure metadata is available for results
   void _loadElectionsOnStartup() {
