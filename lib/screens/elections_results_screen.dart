@@ -31,7 +31,7 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
   void _initializeElectionMetadata() {
     final electionProvider = context.read<ElectionProvider>();
     _syncElectionMetadata(electionProvider.elections);
-    
+
     // Listen for new elections
     electionProvider.addListener(_onElectionsChanged);
   }
@@ -62,33 +62,35 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
     if (mounted) {
       setState(() {
         // Get all results from global service
-        final allResults = ElectionResultsService.instance.getAllElectionResults();
-        
+        final allResults = ElectionResultsService.instance
+            .getAllElectionResults();
+
         // Filter to only show results for elections that have metadata (are currently visible)
         final electionProvider = context.read<ElectionProvider>();
-        final visibleElectionIds = electionProvider.elections.map((e) => e.id).toSet();
-        
+        final visibleElectionIds = electionProvider.elections
+            .map((e) => e.id)
+            .toSet();
+
         _electionResults = allResults.where((result) {
           final hasMetadata = visibleElectionIds.contains(result.electionId);
-          if (!hasMetadata) {
-            debugPrint('🔍 Filtering out results for non-visible election: ${result.electionId}');
-          }
+
           return hasMetadata;
         }).toList();
-        
-        debugPrint('📊 Loaded ${_electionResults.length} results for visible elections (${allResults.length} total)');
+
+        debugPrint(
+          '📊 Loaded ${_electionResults.length} results for visible elections (${allResults.length} total)',
+        );
         _isLoading = false;
       });
     }
   }
 
   void _startListening() {
-    _resultsSubscription = ElectionResultsService.instance.resultsUpdateStream.listen(
-      (electionId) {
-        debugPrint('📊 Results updated for election: $electionId');
-        _loadResults();
-      },
-    );
+    _resultsSubscription = ElectionResultsService.instance.resultsUpdateStream
+        .listen((electionId) {
+          debugPrint('📊 Results updated for election: $electionId');
+          _loadResults();
+        });
   }
 
   Future<void> _onRefresh() async {
@@ -137,7 +139,10 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
                 const SizedBox(height: 8),
                 // Status badge
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: _getStatusColor(result.electionStatus),
                     borderRadius: BorderRadius.circular(16),
@@ -154,9 +159,9 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
                 const SizedBox(height: 8),
                 Text(
                   'Election ID: ${result.electionId}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[600],
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
                 ),
                 const SizedBox(height: 24),
                 // Show basic stats
@@ -167,16 +172,21 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
                       children: [
                         Text(
                           AppLocalizations.of(context).electionResults,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 12),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
-                            _buildStatItem(AppLocalizations.of(context).totalVotesLabel, result.totalVotes.toString()),
-                            _buildStatItem(AppLocalizations.of(context).candidatesLabel, result.candidateVotes.length.toString()),
+                            _buildStatItem(
+                              AppLocalizations.of(context).totalVotesLabel,
+                              result.totalVotes.toString(),
+                            ),
+                            _buildStatItem(
+                              AppLocalizations.of(context).candidatesLabel,
+                              result.candidateVotes.length.toString(),
+                            ),
                           ],
                         ),
                       ],
@@ -215,9 +225,9 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
         ),
         Text(
           label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Colors.grey[600],
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
         ),
       ],
     );
@@ -231,8 +241,8 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _electionResults.isEmpty
-                ? _buildEmptyState()
-                : _buildResultsList(),
+            ? _buildEmptyState()
+            : _buildResultsList(),
       ),
     );
   }
@@ -244,11 +254,7 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.poll_outlined,
-              size: 64,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.poll_outlined, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
               AppLocalizations.of(context).noElectionResultsYet,
@@ -260,9 +266,9 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
             const SizedBox(height: 8),
             Text(
               AppLocalizations.of(context).resultsWillAppearHere,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Colors.grey[500],
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyLarge?.copyWith(color: Colors.grey[500]),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -308,13 +314,15 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
                       children: [
                         Text(
                           result.electionName,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 4),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: _getStatusColor(result.electionStatus),
                             borderRadius: BorderRadius.circular(12),
@@ -331,18 +339,15 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
                       ],
                     ),
                   ),
-                  Icon(
-                    Icons.chevron_right,
-                    color: Colors.grey[400],
-                  ),
+                  Icon(Icons.chevron_right, color: Colors.grey[400]),
                 ],
               ),
               const SizedBox(height: 4),
               Text(
                 'ID: ${result.electionId}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey[600],
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
               ),
               const SizedBox(height: 12),
               // Stats row
@@ -365,9 +370,9 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
               // Last update
               Text(
                 'Last updated: ${_formatUpdateTime(result.lastUpdate)}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey[500],
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.grey[500]),
               ),
             ],
           ),
@@ -380,26 +385,22 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          size: 16,
-          color: Theme.of(context).colorScheme.primary,
-        ),
+        Icon(icon, size: 16, color: Theme.of(context).colorScheme.primary),
         const SizedBox(width: 4),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               value,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             Text(
               label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Colors.grey[600],
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: Colors.grey[600]),
             ),
           ],
         ),
@@ -407,7 +408,10 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
     );
   }
 
-  Widget _buildCandidateResultsList(ElectionResult result, ScrollController? scrollController) {
+  Widget _buildCandidateResultsList(
+    ElectionResult result,
+    ScrollController? scrollController,
+  ) {
     if (result.candidateVotes.isEmpty) {
       return SizedBox(
         height: 200,
@@ -415,17 +419,13 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.inbox_outlined,
-                size: 48,
-                color: Colors.grey[400],
-              ),
+              Icon(Icons.inbox_outlined, size: 48, color: Colors.grey[400]),
               const SizedBox(height: 16),
               Text(
                 AppLocalizations.of(context).noVotesRecordedYet,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.grey[500],
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.copyWith(color: Colors.grey[500]),
               ),
             ],
           ),
@@ -437,17 +437,19 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
 
     return ListView.builder(
       controller: scrollController,
-      physics: scrollController == null ? const NeverScrollableScrollPhysics() : null,
+      physics: scrollController == null
+          ? const NeverScrollableScrollPhysics()
+          : null,
       shrinkWrap: true,
       padding: const EdgeInsets.symmetric(horizontal: 4),
       itemCount: sortedCandidates.length,
       itemBuilder: (context, index) {
         final candidateId = sortedCandidates[index];
         final votes = result.getVotesForCandidate(candidateId);
-        final percentage = result.totalVotes > 0 
+        final percentage = result.totalVotes > 0
             ? (votes / result.totalVotes * 100).toStringAsFixed(1)
             : '0.0';
-        
+
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
           child: Padding(
@@ -459,7 +461,7 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: index == 0 
+                    color: index == 0
                         ? Theme.of(context).colorScheme.primary
                         : Colors.grey[300],
                     shape: BoxShape.circle,
@@ -468,7 +470,7 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
                     child: Text(
                       '${index + 1}',
                       style: TextStyle(
-                        color: index == 0 
+                        color: index == 0
                             ? Theme.of(context).colorScheme.onPrimary
                             : Colors.grey[600],
                         fontWeight: FontWeight.bold,
@@ -485,13 +487,14 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
                     children: [
                       Text(
                         result.getCandidateDisplayName(candidateId),
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        AppLocalizations.of(context).voteDisplayFormat(votes, percentage),
+                        AppLocalizations.of(
+                          context,
+                        ).voteDisplayFormat(votes, percentage),
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Colors.grey[600],
                         ),
@@ -502,7 +505,10 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
                 // Vote count badge
                 if (index == 0 && votes > 0)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.primaryContainer,
                       borderRadius: BorderRadius.circular(12),
@@ -513,13 +519,19 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
                         Icon(
                           Icons.emoji_events,
                           size: 16,
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onPrimaryContainer,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          result.isFinished ? AppLocalizations.of(context).winner : AppLocalizations.of(context).leading,
+                          result.isFinished
+                              ? AppLocalizations.of(context).winner
+                              : AppLocalizations.of(context).leading,
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onPrimaryContainer,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
@@ -538,7 +550,7 @@ class _ElectionsResultsScreenState extends State<ElectionsResultsScreen> {
   String _formatUpdateTime(DateTime time) {
     final now = DateTime.now();
     final difference = now.difference(time);
-    
+
     if (difference.inSeconds < 60) {
       return 'Just now';
     } else if (difference.inMinutes < 60) {

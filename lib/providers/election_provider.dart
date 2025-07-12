@@ -76,24 +76,20 @@ class ElectionProvider with ChangeNotifier {
             if (event.kind == 35000) {
               debugPrint('🗳️ Found kind 35000 event, parsing content...');
               final content = jsonDecode(event.content);
-              debugPrint('📋 Parsed content: $content');
 
               final election = Election.fromJson(content);
-              debugPrint(
-                '✅ Created election: ${election.name} (${election.id})',
-              );
 
               // Apply client-side filtering: only show elections where end_time is within last 12 hours
               final now = DateTime.now();
               final cutoffTime = now.subtract(const Duration(hours: 12));
-              
+
               if (election.endTime.isBefore(cutoffTime)) {
                 debugPrint(
                   '⏭️ Skipping old election: ${election.name} (ended: ${election.endTime})',
                 );
                 return; // Skip this old election
               }
-              
+
               debugPrint(
                 '📅 Election within 12h end window: ${election.name} (ends: ${election.endTime})',
               );
@@ -241,7 +237,7 @@ class ElectionProvider with ChangeNotifier {
               // Apply client-side filtering: only show elections where end_time is within last 12 hours
               final now = DateTime.now();
               final cutoffTime = now.subtract(const Duration(hours: 12));
-              
+
               if (election.endTime.isBefore(cutoffTime)) {
                 return; // Skip this old election
               }
