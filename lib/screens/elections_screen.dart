@@ -290,6 +290,7 @@ class _ElectionsScreenState extends State<ElectionsScreen> {
         hashed,
         election.id,
         election.rsaPubKey,
+        voterPubHex,
       );
 
       // Use the shared NostrService instance to avoid concurrent connection issues

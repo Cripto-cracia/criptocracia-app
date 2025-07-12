@@ -17,6 +17,7 @@ class VoterSessionService {
   static const _unblindedSignatureKey = 'voter_unblinded_signature';
   static const _timestampKey = 'voter_session_timestamp';
   static const _processingTimestampKey = 'voter_token_processing_timestamp';
+  static const _voterPublicKeyKey = 'voter_public_key';
 
   // Using SecureStorageService for all storage operations
 
@@ -35,8 +36,15 @@ class VoterSessionService {
     Uint8List hashBytes,
     String electionId,
     String rsaPubKey,
+    String voterPublicKeyHex,
   ) async {
     debugPrint('💾 Saving initial voting session for election: $electionId');
+
+    // Clear any stale processing data from previous elections
+    // Processing data should only exist after successful token processing
+    await SecureStorageService.delete(key: _processingTimestampKey);
+    await SecureStorageService.delete(key: _unblindedSignatureKey);
+    debugPrint('🗑️ Cleared stale processing data for clean session start');
 
     await SecureStorageService.write(
       key: _nonceKey,
@@ -80,6 +88,13 @@ class VoterSessionService {
         '⚠️ WARNING: No messageRandomizer in BlindingResult - this may cause vote verification issues',
       );
     }
+
+    // Store voter public key for identity verification
+    await SecureStorageService.write(
+      key: _voterPublicKeyKey,
+      value: voterPublicKeyHex,
+    );
+    debugPrint('🔑 Stored voter public key: ${voterPublicKeyHex.substring(0, 16)}...');
 
     debugPrint('✅ Initial session data saved successfully');
   }
@@ -178,6 +193,11 @@ class VoterSessionService {
     return int.tryParse(data);
   }
 
+  /// Get voter public key for identity verification
+  static Future<String?> getVoterPublicKey() async {
+    return await SecureStorageService.read(key: _voterPublicKeyKey);
+  }
+
   /// Clear all session data
   static Future<void> clearSession() async {
     debugPrint('🗑️ Clearing all voting session data');
@@ -192,6 +212,7 @@ class VoterSessionService {
     await SecureStorageService.delete(key: _unblindedSignatureKey);
     await SecureStorageService.delete(key: _timestampKey);
     await SecureStorageService.delete(key: _processingTimestampKey);
+    await SecureStorageService.delete(key: _voterPublicKeyKey);
 
     debugPrint('✅ Session data cleared successfully');
   }
@@ -239,6 +260,7 @@ class VoterSessionService {
       'rsaPubKey': await getRsaPubKey(),
       'timestamp': await getTimestamp(),
       'processingTimestamp': await getProcessingTimestamp(),
+      'voterPublicKey': await getVoterPublicKey(),
     };
   }
 

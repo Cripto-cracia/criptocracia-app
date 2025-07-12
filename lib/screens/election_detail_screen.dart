@@ -242,15 +242,14 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
         }
       }
 
-      // ENHANCED VALIDATION: Smart validation that recognizes recent processing
+      // CONSERVATIVE VALIDATION: Only trust explicitly verified tokens for current user
       bool hasValidToken = false;
       
       if (hasSessionData) {
-        debugPrint('🔐 Found session data, validating token...');
+        debugPrint('🔐 Found session data, applying conservative validation...');
         
-        // Check both session creation and processing timestamps
+        // Check session age for staleness
         final sessionTimestamp = session['timestamp'] as int?;
-        final processingTimestamp = session['processingTimestamp'] as int?;
         
         if (sessionTimestamp != null) {
           final sessionAge = DateTime.now().millisecondsSinceEpoch - sessionTimestamp;
@@ -263,29 +262,30 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
             await VoterSessionService.clearSession();
             hasValidToken = false;
           } else {
-            // Check if token was recently processed (within last hour)
-            if (processingTimestamp != null) {
-              final processingAge = DateTime.now().millisecondsSinceEpoch - processingTimestamp;
-              final processingAgeMinutes = processingAge / (1000 * 60);
+            // Conservative approach: Only trust tokens with successful processing AND voter verification
+            final processingTimestamp = session['processingTimestamp'] as int?;
+            final sessionVoterKey = session['voterPublicKey'] as String?;
+            
+            if (processingTimestamp != null && sessionVoterKey != null) {
+              // Verify that this session belongs to the current user
+              final currentUserKeys = await NostrKeyManager.getDerivedKeys();
+              final currentUserPubKey = currentUserKeys['publicKey'] as Uint8List;
+              final currentUserPubHex = currentUserPubKey
+                  .map((e) => e.toRadixString(16).padLeft(2, '0')).join();
               
-              debugPrint('   Token processing age: ${processingAgeMinutes.toStringAsFixed(1)} minutes');
-              debugPrint('   Token processed at: ${DateTime.fromMillisecondsSinceEpoch(processingTimestamp)}');
-              
-              if (processingAgeMinutes <= 60) {
-                // Token was recently processed and validated - trust it
-                debugPrint('✅ Token recently processed and validated, trusting stored token');
+              if (sessionVoterKey == currentUserPubHex) {
+                debugPrint('✅ Session belongs to current user, token verified');
                 hasValidToken = true;
-                
-                // Note: No snackbar here to avoid duplicates
-                // Snackbar is shown through VoteTokenEvent stream for user feedback
               } else {
-                // Token is older, apply conservative validation
-                debugPrint('🔄 Token is older than 1 hour, applying conservative validation');
+                debugPrint('❌ Session belongs to different user');
+                debugPrint('   Session voter: ${sessionVoterKey.substring(0, 16)}...');
+                debugPrint('   Current user: ${currentUserPubHex.substring(0, 16)}...');
+                debugPrint('🗑️ Clearing session from different user');
+                await VoterSessionService.clearSession();
                 hasValidToken = false;
               }
             } else {
-              // No processing timestamp - either old session or unauthorized
-              debugPrint('⚠️ No processing timestamp found, applying conservative validation');
+              debugPrint('⚠️ Missing processing timestamp or voter identity, requiring fresh authorization');
               hasValidToken = false;
             }
           }
@@ -474,6 +474,7 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
         hashed,
         election.id,
         election.rsaPubKey,
+        voterPubHex,
       );
 
       // Use the shared NostrService instance to avoid concurrent connection issues
