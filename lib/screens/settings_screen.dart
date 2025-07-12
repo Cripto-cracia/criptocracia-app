@@ -91,6 +91,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 32),
                 _buildEcKeySection(context, settingsProvider),
                 const SizedBox(height: 32),
+                _buildLanguageSection(context, settingsProvider),
+                const SizedBox(height: 32),
                 _buildConnectionStatsSection(context, settingsProvider),
                 const SizedBox(height: 32),
                 _buildVersionInfo(context),
@@ -276,6 +278,83 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildLanguageSection(BuildContext context, SettingsProvider settingsProvider) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              AppLocalizations.of(context).languageSelection,
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              AppLocalizations.of(context).languageSelectionDescription,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildLanguageOption(
+              context,
+              settingsProvider,
+              null, // System default
+              AppLocalizations.of(context).systemDefault,
+            ),
+            _buildLanguageOption(
+              context,
+              settingsProvider,
+              const Locale('en'),
+              AppLocalizations.of(context).english,
+            ),
+            _buildLanguageOption(
+              context,
+              settingsProvider,
+              const Locale('es'),
+              AppLocalizations.of(context).spanish,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLanguageOption(
+    BuildContext context,
+    SettingsProvider settingsProvider,
+    Locale? locale,
+    String title,
+  ) {
+    return ListTile(
+      title: Text(title),
+      leading: Radio<String>(
+        value: locale?.languageCode ?? 'system',
+        groupValue: settingsProvider.selectedLocale?.languageCode ?? 'system',
+        onChanged: (value) => _changeLanguage(context, settingsProvider, locale),
+      ),
+      onTap: () => _changeLanguage(context, settingsProvider, locale),
+      contentPadding: EdgeInsets.zero,
+    );
+  }
+
+  Future<void> _changeLanguage(
+    BuildContext context,
+    SettingsProvider settingsProvider,
+    Locale? locale,
+  ) async {
+    final success = await settingsProvider.updateLocale(locale);
+    if (success && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).languageChanged),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
   }
 
   Widget _buildConnectionStatsSection(BuildContext context, SettingsProvider settingsProvider) {

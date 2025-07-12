@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 import '../models/relay_status.dart';
@@ -18,15 +18,18 @@ class SettingsProvider with ChangeNotifier {
   // Storage keys
   static const String _relayUrlsKey = 'settings_relay_urls';
   static const String _ecPublicKeyKey = 'settings_ec_public_key';
+  static const String _selectedLocaleKey = 'settings_selected_locale';
 
   final List<String> _relayUrls = List.from(AppConfig.relayUrls);
   String _ecPublicKey = AppConfig.ecPublicKey;
+  Locale? _selectedLocale; // null means system default
   final Map<String, RelayStatus> _relayStatuses = {};
   Timer? _statusCheckTimer;
   
   // Getters
   List<String> get relayUrls => List.unmodifiable(_relayUrls);
   String get ecPublicKey => _ecPublicKey;
+  Locale? get selectedLocale => _selectedLocale;
   Map<String, RelayStatus> get relayStatuses => Map.unmodifiable(_relayStatuses);
 
   @override
@@ -66,6 +69,19 @@ class SettingsProvider with ChangeNotifier {
       } else {
         debugPrint('ℹ️ No saved relay URLs found, using defaults');
       }
+
+      // Load selected locale
+      final savedLocaleCode = prefs.getString(_selectedLocaleKey);
+      if (savedLocaleCode != null && savedLocaleCode.isNotEmpty) {
+        if (savedLocaleCode == 'system') {
+          _selectedLocale = null; // System default
+        } else {
+          _selectedLocale = Locale(savedLocaleCode);
+        }
+        debugPrint('✅ Loaded locale from storage: $savedLocaleCode');
+      } else {
+        debugPrint('ℹ️ No saved locale found, using system default');
+      }
       
       debugPrint('✅ Settings loaded successfully');
       notifyListeners();
@@ -96,6 +112,19 @@ class SettingsProvider with ChangeNotifier {
       debugPrint('✅ Relay URLs saved successfully');
     } catch (e) {
       debugPrint('❌ Error saving relay URLs: $e');
+    }
+  }
+
+  /// Save selected locale to persistent storage
+  Future<void> _saveSelectedLocale() async {
+    try {
+      debugPrint('💾 Saving selected locale to storage...');
+      final prefs = await SharedPreferences.getInstance();
+      final localeCode = _selectedLocale?.languageCode ?? 'system';
+      await prefs.setString(_selectedLocaleKey, localeCode);
+      debugPrint('✅ Selected locale saved successfully: $localeCode');
+    } catch (e) {
+      debugPrint('❌ Error saving selected locale: $e');
     }
   }
 
@@ -325,6 +354,23 @@ class SettingsProvider with ChangeNotifier {
       isConnected: false,
       error: 'Status not available',
     );
+  }
+
+  /// Update selected locale
+  Future<bool> updateLocale(Locale? locale) async {
+    try {
+      _selectedLocale = locale;
+      
+      // Save to persistent storage
+      await _saveSelectedLocale();
+      
+      notifyListeners();
+      debugPrint('✅ Updated selected locale: ${locale?.languageCode ?? 'system default'}');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Failed to update locale: $e');
+      return false;
+    }
   }
 
   /// Get connection statistics

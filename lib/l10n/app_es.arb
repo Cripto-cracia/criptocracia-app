@@ -194,5 +194,13 @@
   "electionResults": "Resultados Electorales",
   "showQrCode": "Mostrar Código QR",
   "qrCodeTitle": "Escanéame",
-  "qrCodeDescription": "Escanea este código QR para compartir tu clave pública Nostr"
+  "qrCodeDescription": "Escanea este código QR para compartir tu clave pública Nostr",
+
+  "language": "Idioma",
+  "languageSelection": "Selección de Idioma",
+  "languageSelectionDescription": "Elige tu idioma preferido para la aplicación. El predeterminado del sistema usará la configuración de idioma de tu dispositivo.",
+  "systemDefault": "Predeterminado del Sistema",
+  "english": "Inglés",
+  "spanish": "Español",
+  "languageChanged": "Idioma cambiado exitosamente"
 }

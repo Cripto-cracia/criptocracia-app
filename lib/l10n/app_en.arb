@@ -844,5 +844,34 @@
   "qrCodeDescription": "Scan this QR code to share your Nostr public key",
   "@qrCodeDescription": {
     "description": "QR code modal description"
+  },
+
+  "language": "Language",
+  "@language": {
+    "description": "Language label"
+  },
+  "languageSelection": "Language Selection",
+  "@languageSelection": {
+    "description": "Language selection section title"
+  },
+  "languageSelectionDescription": "Choose your preferred app language. System default will use your device's language setting.",
+  "@languageSelectionDescription": {
+    "description": "Language selection section description"
+  },
+  "systemDefault": "System Default",
+  "@systemDefault": {
+    "description": "System default language option"
+  },
+  "english": "English",
+  "@english": {
+    "description": "English language option"
+  },
+  "spanish": "Spanish",
+  "@spanish": {
+    "description": "Spanish language option"
+  },
+  "languageChanged": "Language changed successfully",
+  "@languageChanged": {
+    "description": "Language changed success message"
   }
 }
