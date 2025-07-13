@@ -173,9 +173,12 @@ jobs:
           
           if [ -n "$CHANGELOG_CONTENT" ]; then
             echo "Found changelog content for version $VERSION"
-            # Escape newlines and quotes for GitHub output
-            CHANGELOG_CONTENT=$(echo "$CHANGELOG_CONTENT" | sed ':a;N;$!ba;s/\n/\\n/g' | sed 's/"/\\"/g')
-            echo "CHANGELOG_CONTENT=$CHANGELOG_CONTENT" >> $GITHUB_OUTPUT
+            # Use heredoc format for multi-line output in GitHub Actions
+            {
+              echo "CHANGELOG_CONTENT<<EOF"
+              echo "$CHANGELOG_CONTENT"
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
           else
             echo "No changelog content found for version $VERSION"
             echo "CHANGELOG_CONTENT=" >> $GITHUB_OUTPUT
