@@ -144,7 +144,7 @@ jobs:
         if: steps.should_build.outputs.SHOULD_BUILD == 'true' && env.TAG_EXISTS == 'true'
         id: modify_tag
         run: |
-          new_version="${{ env.VERSION }}-alpha-${{ github.run_number }}"
+          new_version="${{ env.VERSION }}"
           echo "VERSION=$new_version" >> $GITHUB_ENV
 
       - name: Extract Changelog Content
