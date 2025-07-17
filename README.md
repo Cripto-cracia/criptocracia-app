@@ -331,10 +331,11 @@ This project is under [MIT License](./LICENSE).
 
 ## 🔗 Related Projects
 
-- **Criptocracia EC**: Rust-based election coordinator.
-- **Criptocracia Voter**: Rust-based voter client.
-
-https://github.com/grunch/criptocracia
+- **[Criptocracia EC](https://github.com/Cripto-cracia/criptocracia
+)**: Rust-based election coordinator.
+- **[Criptocracia Voter](https://github.com/Cripto-cracia/criptocracia
+)**: Rust-based voter client.
+- **[eccli](https://github.com/Cripto-cracia/eccli)**: Command-line client to connect with the Electoral Commission gRPC API 
 
 ## 📞 Support
 
