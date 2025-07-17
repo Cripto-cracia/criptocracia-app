@@ -196,6 +196,31 @@ flutter clean                 # Clean build cache
 - **Results Screen**: Real-time election results display
 - **Account Screen**: View voter identity and session information
 
+### Screenshots
+
+<table>
+<tr>
+<td align="center">
+<img src="assets/images/screenshots/1-elections.png" alt="Elections Screen" width="300"/>
+<br><b>Elections Screen</b>
+</td>
+<td align="center">
+<img src="assets/images/screenshots/2-account.png" alt="Account Screen" width="300"/>
+<br><b>Account Screen</b>
+</td>
+</tr>
+<tr>
+<td align="center">
+<img src="assets/images/screenshots/3-voting.png" alt="Voting Screen" width="300"/>
+<br><b>Voting Screen</b>
+</td>
+<td align="center">
+<img src="assets/images/screenshots/4-results.png" alt="Results Screen" width="300"/>
+<br><b>Results Screen</b>
+</td>
+</tr>
+</table>
+
 ### Navigation
 - **Bottom Navigation**: Switch between Elections and Results
 - **Drawer Menu**: Access account settings and app information
